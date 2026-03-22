@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db, storage } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, where, deleteDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'motion/react';
-import { Book, Plus, Search, Calendar, Filter, Image as ImageIcon, Music, Smile, User, X } from 'lucide-react';
+import { Book, Plus, Search, Calendar, Filter, Image as ImageIcon, Music, Smile, User, X, Trash2 } from 'lucide-react';
 import { DiaryEntry } from '../types';
 import { cn, formatDate } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
@@ -52,6 +52,16 @@ const Diary: React.FC = () => {
     });
     return unsub;
   }, [user]);
+
+  const handleDelete = async (entryId: string) => {
+    if (!user) return;
+    if (!confirm('Are you sure you want to delete this diary entry? This cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'diary', entryId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/diary/${entryId}`);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,11 +309,20 @@ const Diary: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                {entry.mood && (
-                  <span className="px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full text-xs font-bold uppercase tracking-wider">
-                    {entry.mood}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {entry.mood && (
+                    <span className="px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full text-xs font-bold uppercase tracking-wider">
+                      {entry.mood}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => handleDelete(entry.id)}
+                    className="p-2 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                    title="Delete entry"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               <p className="text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
                 {entry.content}
