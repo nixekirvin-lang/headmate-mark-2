@@ -154,6 +154,13 @@ const About: React.FC = () => {
         
         <div className="space-y-6">
           <div>
+            <h4 className="font-bold text-[var(--text-primary)] mb-2">Brought to you by</h4>
+            <p className="text-[var(--text-secondary)]">
+              <strong>The Quiet Room</strong> • <strong>Team HeadM8</strong>
+            </p>
+          </div>
+          
+          <div>
             <h4 className="font-bold text-[var(--text-primary)] mb-2">Creator</h4>
             <p className="text-[var(--text-secondary)]">
               <strong>james</strong> (Xoriori)
