@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Heart, Code, Users, AlertCircle, Coffee } from 'lucide-react';
+import { Heart, Code, Users, AlertCircle } from 'lucide-react';
 
 const About: React.FC = () => {
   return (
@@ -159,31 +159,7 @@ const About: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <h4 className="font-bold text-[var(--text-primary)] mb-2">Special Thanks</h4>
-            <p className="text-[var(--text-secondary)]">
-              Thank you to the entire plural community for your trust, feedback, and support 
-              in making HeadM8 a reality. This project exists because of you.
-            </p>
-          </div>
         </div>
-      </motion.div>
-
-      {/* Support Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-[var(--accent-main)]/10 p-8 rounded-3xl border border-[var(--accent-main)]/20"
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <Coffee size={24} className="text-[var(--accent-main)]" />
-          <h3 className="text-lg font-bold text-[var(--accent-main)]">Support the Project</h3>
-        </div>
-        <p className="text-[var(--text-secondary)] leading-relaxed">
-          HeadM8 is a free, community-driven project. If you'd like to support development, 
-          you can contribute code, report bugs, or simply share the app with others who might benefit from it.
-        </p>
       </motion.div>
     </div>
   );
