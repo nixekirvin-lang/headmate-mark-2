@@ -9,7 +9,7 @@ import { cn, formatDate, formatDuration, formatTimeRange } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 const SwitchTracker: React.FC = () => {
-  const { alters, switches } = useSystem();
+  const { alters, switches, currentFronters } = useSystem();
   const { user } = useAuth();
   const [selectedAlters, setSelectedAlters] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -49,16 +49,57 @@ const SwitchTracker: React.FC = () => {
           <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Front History</h2>
           <p className="text-[var(--text-secondary)]">Log and analyze your system's fronting patterns.</p>
         </div>
-        {!isLogging && (
-          <button
-            onClick={() => setIsLogging(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)]"
-          >
-            <Plus size={20} />
-            Log New Switch
-          </button>
+      </div>
+
+      {/* Currently Fronting Section */}
+      <div className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm">
+        <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] mb-6">
+          <Activity className="text-[var(--accent-main)]" />
+          Currently Fronting
+        </h3>
+        {currentFronters.length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {currentFronters.map((alter) => (
+              <div key={alter.id} className="flex items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border-2" style={{ borderColor: alter.themeConfig?.accent || 'var(--accent-main)' }}>
+                <img
+                  src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
+                  alt={alter.name}
+                  className="w-16 h-16 rounded-2xl object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <p className="text-lg font-bold text-[var(--text-primary)]">{alter.name}</p>
+                  {switches[0] && (
+                    <p className="text-sm text-[var(--text-muted)]">Fronting since: {formatDate(switches[0].timestamp)}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-[var(--text-muted)]">
+            <p>No one is currently fronting</p>
+            <button
+              onClick={() => setIsLogging(true)}
+              className="mt-4 flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)] mx-auto"
+            >
+              <Plus size={20} />
+              Log New Switch
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Log New Switch Button (when not logging) */}
+      {!isLogging && currentFronters.length > 0 && (
+        <button
+          onClick={() => setIsLogging(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)]"
+        >
+          <Plus size={20} />
+          Log New Switch
+        </button>
+      )}
 
       {isLogging && (
         <motion.div
@@ -130,7 +171,7 @@ const SwitchTracker: React.FC = () => {
         <div className="p-6 border-b border-[var(--bg-panel)]">
           <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
             <Clock className="text-[var(--accent-main)]" />
-            Switch History
+            Front History
           </h3>
         </div>
         <div className="divide-y divide-[var(--bg-panel)]">
