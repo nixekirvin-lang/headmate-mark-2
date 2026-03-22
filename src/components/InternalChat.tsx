@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, limit, deleteDoc, doc } from 'firebase/firestore';
 import { motion } from 'motion/react';
-import { Send, Pin, MessageSquare, User, Mic } from 'lucide-react';
+import { Send, MessageSquare, User, Trash2 } from 'lucide-react';
 import { InternalMessage } from '../types';
 import { cn, formatDate } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
@@ -37,6 +37,15 @@ const InternalChat: React.FC = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleDelete = async (messageId: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'internal_messages', messageId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/internal_messages/${messageId}`);
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,10 +93,18 @@ const InternalChat: React.FC = () => {
                 referrerPolicy="no-referrer"
               />
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-bold text-sm text-[var(--text-primary)]">{alter?.name || 'Unknown'}</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">{formatDate(msg.timestamp)}</span>
-                  {msg.isPinned && <Pin size={12} className="text-[var(--accent-main)]" />}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-[var(--text-primary)]">{alter?.name || 'Unknown'}</span>
+                    <span className="text-[10px] text-[var(--text-muted)]">{formatDate(msg.timestamp)}</span>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(msg.id)}
+                    className="p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                    title="Delete message"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
                 <div className="p-4 bg-[var(--bg-main)] rounded-2xl rounded-tl-none text-sm text-[var(--text-secondary)] border border-[var(--bg-panel)]">
                   {msg.content}
@@ -121,14 +138,7 @@ const InternalChat: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="flex gap-2">
-              <button type="button" className="p-2 text-[var(--text-muted)] hover:text-[var(--accent-main)] transition-colors">
-                <Mic size={20} />
-              </button>
-              <button type="button" className="p-2 text-[var(--text-muted)] hover:text-[var(--accent-main)] transition-colors">
-                <Pin size={20} />
-              </button>
-            </div>
+
           </div>
           <div className="flex gap-4">
             <input
