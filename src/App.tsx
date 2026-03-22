@@ -24,6 +24,7 @@ const Settings = lazy(() => import('./components/Settings'));
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const FriendsList = lazy(() => import('./components/FriendsList'));
 const Notifications = lazy(() => import('./components/Notifications'));
+const About = lazy(() => import('./components/About'));
 
 const LoadingFallback: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-950">
@@ -122,6 +123,7 @@ const AppContent: React.FC = () => {
       case 'profile': return <ProfilePage userId={viewProfileId || user.uid} onAuthorClick={handleViewProfile} />;
       case 'resources': return <Resources />;
       case 'settings': return <Settings />;
+      case 'about': return <About />;
       default: return <Dashboard />;
     }
   };

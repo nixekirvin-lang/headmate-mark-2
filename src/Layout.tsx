@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useTheme } from './ThemeContext';
-import { LogOut, Users, MessageSquare, Book, Activity, Settings, Home, Info, ShieldAlert, User, Heart, Bell } from 'lucide-react';
+import { LogOut, Users, MessageSquare, Book, Activity, Settings, Home, Info, ShieldAlert, User, Heart, Bell, HelpCircle } from 'lucide-react';
 import Logo from './components/Logo';
 import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
@@ -57,6 +57,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'friends', label: 'Friends', icon: Heart },
     { id: 'resources', label: 'Resources', icon: Info },
+    { id: 'about', label: 'About', icon: HelpCircle },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
