@@ -76,34 +76,36 @@ const About: React.FC = () => {
           <h3 className="text-xl font-bold text-[var(--text-primary)]">How It's Built</h3>
         </div>
         <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          HeadM8 is an <strong>open-source application</strong> built with modern web technologies:
+          HeadM8 was created using <strong>vibe coding</strong> - an AI-assisted development approach 
+          where the code was primarily generated through conversations with AI assistants. The creator 
+          provided the vision and requirements while AI helped implement the functionality.
         </p>
-        <ul className="space-y-2 mb-4">
+        <ul className="space-y-2">
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>React</strong> - Frontend framework for building the user interface
+            <strong>ChatGPT</strong> / <strong>Claude</strong> - AI assistants used for code generation
           </li>
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>TypeScript</strong> - Type-safe JavaScript for reliable code
+            <strong>Cursor</strong> - AI-powered code editor used for development
           </li>
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>Firebase</strong> - Backend services for authentication and database
+            <strong>React</strong> + <strong>TypeScript</strong> - Frontend framework
           </li>
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>Tailwind CSS</strong> - Styling for a modern, responsive design
+            <strong>Firebase</strong> - Authentication and database
           </li>
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>Vercel</strong> - Deployment and hosting platform
+            <strong>Tailwind CSS</strong> - Styling
+          </li>
+          <li className="flex items-center gap-2 text-[var(--text-secondary)]">
+            <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
+            <strong>Vercel</strong> - Deployment and hosting
           </li>
         </ul>
-        <p className="text-[var(--text-secondary)] leading-relaxed">
-          The code is freely available for the community to review, contribute to, and host 
-          independently if desired.
-        </p>
       </motion.div>
 
       {/* Credits Section */}
