@@ -135,7 +135,7 @@ const About: React.FC = () => {
           your system or have been on this journey for years, you'll find a welcoming space here.
         </p>
         <a
-          href="https://discord.gg/thequietroom"
+          href="https://discord.gg/dtJqtccwuD"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors"
