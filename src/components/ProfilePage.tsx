@@ -47,6 +47,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
   const [postTw, setPostTw] = useState('');
   const [postImages, setPostImages] = useState<File[]>([]);
   const [posting, setPosting] = useState(false);
+  const [postMood, setPostMood] = useState('');
+
+  // Mood options
+  const moods = [
+    { emoji: '😊', label: 'Happy' },
+    { emoji: '😢', label: 'Sad' },
+    { emoji: '😡', label: 'Angry' },
+    { emoji: '😰', label: 'Anxious' },
+    { emoji: '😴', label: 'Tired' },
+    { emoji: '🤔', label: 'Thoughtful' },
+    { emoji: '😌', label: 'Calm' },
+    { emoji: '🥳', label: 'Excited' },
+    { emoji: '🥺', label: 'Hopeful' },
+    { emoji: '😎', label: 'Confident' },
+  ];
 
   useEffect(() => {
     if (!userId) return;
@@ -371,6 +386,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
         triggerWarnings: postTw.split(',').map(t => t.trim()).filter(t => t),
         likedBy: [],
         imageUrls,
+        mood: postMood || undefined,
       });
 
       setPostContent('');
@@ -378,6 +394,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
       setPostVisibility('public');
       setPostTw('');
       setPostImages([]);
+      setPostMood('');
       setShowCreatePost(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'posts');
@@ -708,6 +725,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
               </div>
               
               <form onSubmit={handleCreatePost} className="space-y-6">
+                {/* Mood Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">How are you feeling?</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {moods.map((mood) => (
+                      <button
+                        key={mood.label}
+                        type="button"
+                        onClick={() => setPostMood(postMood === mood.label ? '' : mood.label)}
+                        className={cn(
+                          "flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-all",
+                          postMood === mood.label
+                            ? "bg-[var(--accent-main)] text-white"
+                            : "bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--bg-panel)] hover:border-[var(--accent-main)]"
+                        )}
+                      >
+                        <span>{mood.emoji}</span>
+                        <span>{mood.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Alter Selection */}
                 {!profile?.isSinglet && (
                   <div className="space-y-2">

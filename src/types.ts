@@ -112,6 +112,7 @@ export interface Post {
   triggerWarnings?: string[];
   likedBy?: string[];
   imageUrls?: string[];
+  mood?: string;
 }
 
 export interface Comment {

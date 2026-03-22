@@ -116,7 +116,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onAuthorClick, onEdit
             <h4 className="font-bold text-[var(--text-primary)]">
               {authorAlter?.name || authorProfile?.displayName || authorProfile?.systemName || 'System Profile'}
             </h4>
-            <p className="text-xs text-[var(--text-muted)]">{formatDate(post.timestamp)}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-[var(--text-muted)]">{formatDate(post.timestamp)}</p>
+              {post.mood && (
+                <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full">
+                  {post.mood}
+                </span>
+              )}
+            </div>
           </div>
         </button>
         <div className="flex items-center gap-4">
