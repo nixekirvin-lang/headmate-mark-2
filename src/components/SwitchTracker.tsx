@@ -4,7 +4,8 @@ import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { motion } from 'motion/react';
-import { Activity, Plus, Check, Clock, AlertCircle } from 'lucide-react';
+import { Activity, Plus, Check, Clock, AlertCircle, Edit2, Save, X } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
 import { cn, formatDate, formatDuration, formatTimeRange } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
@@ -14,7 +15,10 @@ const SwitchTracker: React.FC = () => {
   const [selectedAlters, setSelectedAlters] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [triggers, setTriggers] = useState('');
+  const [frontStatus, setFrontStatus] = useState('');
   const [isLogging, setIsLogging] = useState(false);
+  const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null);
+  const [statusInput, setStatusInput] = useState('');
 
   const handleLogSwitch = async () => {
     if (!user || selectedAlters.length === 0) return;
@@ -26,14 +30,34 @@ const SwitchTracker: React.FC = () => {
         timestamp: new Date().toISOString(),
         notes,
         triggers: triggers.split(',').map(t => t.trim()).filter(t => t),
+        frontStatus: frontStatus || undefined,
       });
       setSelectedAlters([]);
       setNotes('');
       setTriggers('');
+      setFrontStatus('');
       setIsLogging(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/switches`);
     }
+  };
+
+  const handleUpdateStatus = async (switchId: string) => {
+    if (!user || !statusInput.trim()) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'switches', switchId), {
+        frontStatus: statusInput,
+      });
+      setEditingStatusFor(null);
+      setStatusInput('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/switches/${switchId}`);
+    }
+  };
+
+  const startEditingStatus = (switchId: string, currentStatus: string) => {
+    setEditingStatusFor(switchId);
+    setStatusInput(currentStatus);
   };
 
   const toggleAlter = (id: string) => {
@@ -58,23 +82,73 @@ const SwitchTracker: React.FC = () => {
           Currently Fronting
         </h3>
         {currentFronters.length > 0 ? (
-          <div className="flex flex-wrap gap-4">
-            {currentFronters.map((alter) => (
-              <div key={alter.id} className="flex items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border-2" style={{ borderColor: alter.themeConfig?.accent || 'var(--accent-main)' }}>
-                <img
-                  src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
-                  alt={alter.name}
-                  className="w-16 h-16 rounded-2xl object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                <div>
-                  <p className="text-lg font-bold text-[var(--text-primary)]">{alter.name}</p>
-                  {switches[0] && (
-                    <p className="text-sm text-[var(--text-muted)]">Fronting since: {formatDate(switches[0].timestamp)}</p>
-                  )}
+          <div className="space-y-4">
+            {currentFronters.map((alter) => {
+              const currentSwitch = switches.find(s => s.alterIds?.includes(alter.id));
+              const isEditing = editingStatusFor === currentSwitch?.id;
+              
+              return (
+                <div key={alter.id} className="flex flex-col md:flex-row md:items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border-2" style={{ borderColor: alter.themeConfig?.accent || 'var(--accent-main)' }}>
+                  <img
+                    src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
+                    alt={alter.name}
+                    className="w-16 h-16 rounded-2xl object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex-1">
+                    <p className="text-lg font-bold text-[var(--text-primary)]">{alter.name}</p>
+                    {currentSwitch && (
+                      <p className="text-sm text-[var(--text-muted)]">Fronting since: {formatDate(currentSwitch.timestamp)}</p>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    {isEditing ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={statusInput}
+                          onChange={(e) => setStatusInput(e.target.value)}
+                          placeholder="Set your front status..."
+                          className="flex-1 px-3 py-2 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleUpdateStatus(currentSwitch!.id)}
+                          className="p-2 bg-[var(--accent-main)] text-white rounded-xl"
+                        >
+                          <Save size={16} />
+                        </button>
+                        <button
+                          onClick={() => setEditingStatusFor(null)}
+                          className="p-2 bg-[var(--bg-panel)] text-[var(--text-primary)] rounded-xl"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : currentSwitch?.frontStatus ? (
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full text-sm">
+                          {currentSwitch.frontStatus}
+                        </span>
+                        <button
+                          onClick={() => startEditingStatus(currentSwitch.id, currentSwitch.frontStatus || '')}
+                          className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-main)]"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditingStatus(currentSwitch?.id || '', '')}
+                        className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-main)]"
+                      >
+                        + Add status
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-8 text-[var(--text-muted)]">
@@ -134,6 +208,18 @@ const SwitchTracker: React.FC = () => {
                 {selectedAlters.includes(alter.id) && <Check size={12} className="text-[var(--accent-main)]" />}
               </button>
             ))}
+          </div>
+
+          <div className="space-y-4 mb-8">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Front Status (optional)</label>
+              <input
+                value={frontStatus}
+                onChange={e => setFrontStatus(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none"
+                placeholder="e.g. Co-conscious, Watching, Active"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

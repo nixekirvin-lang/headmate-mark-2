@@ -88,6 +88,7 @@ export interface SwitchLog {
   timestamp: string;
   notes?: string;
   triggers?: string[];
+  frontStatus?: string;
 }
 
 export interface InternalMessage {
