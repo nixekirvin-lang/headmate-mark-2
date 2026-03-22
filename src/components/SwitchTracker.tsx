@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc, getDoc } from 'firebase/firestore';
 import { motion } from 'motion/react';
-import { Activity, Plus, Check, Clock, AlertCircle, Edit2, Save, X } from 'lucide-react';
+import { Activity, Plus, Check, Clock, AlertCircle, Edit2, Save, X, BarChart3, List } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { cn, formatDate, formatDuration, formatTimeRange } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
@@ -19,6 +19,7 @@ const SwitchTracker: React.FC = () => {
   const [isLogging, setIsLogging] = useState(false);
   const [editingStatusFor, setEditingStatusFor] = useState<{ switchId: string; alterId: string } | null>(null);
   const [statusInput, setStatusInput] = useState('');
+  const [activeTab, setActiveTab] = useState<'history' | 'analytics'>('history');
 
   const handleLogSwitch = async () => {
     if (!user || selectedAlters.length === 0) return;
@@ -72,6 +73,71 @@ const SwitchTracker: React.FC = () => {
     );
   };
 
+  // Calculate analytics
+  const analytics = useMemo(() => {
+    if (switches.length === 0) return null;
+
+    // Sort switches by timestamp (newest first)
+    const sortedSwitches = [...switches].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    const alterStats: Record<string, {
+      alterId: string;
+      alterName: string;
+      alterAvatar: string;
+      frontCount: number;
+      totalMinutes: number;
+    }> = {};
+
+    sortedSwitches.forEach((log, index) => {
+      if (!log.alterIds || !Array.isArray(log.alterIds)) return;
+      
+      // Calculate duration until next switch
+      const currentTime = new Date(log.timestamp).getTime();
+      const nextSwitch = sortedSwitches[index + 1];
+      const nextTime = nextSwitch ? new Date(nextSwitch.timestamp).getTime() : Date.now();
+      const durationMs = nextTime - currentTime;
+      const durationMinutes = Math.floor(durationMs / 60000);
+
+      log.alterIds.forEach(alterId => {
+        const alter = alters.find(a => a.id === alterId);
+        if (!alter) return;
+
+        if (!alterStats[alterId]) {
+          alterStats[alterId] = {
+            alterId,
+            alterName: alter.name,
+            alterAvatar: alter.avatarUrl,
+            frontCount: 0,
+            totalMinutes: 0
+          };
+        }
+        alterStats[alterId].frontCount += 1;
+        alterStats[alterId].totalMinutes += durationMinutes;
+      });
+    });
+
+    const statsArray = Object.values(alterStats).sort((a, b) => b.frontCount - a.frontCount);
+    
+    // Calculate system totals
+    const totalSwitches = switches.length;
+    const firstSwitch = sortedSwitches[sortedSwitches.length - 1];
+    const lastSwitch = sortedSwitches[0];
+    const systemUptimeMs = new Date(lastSwitch.timestamp).getTime() - new Date(firstSwitch.timestamp).getTime();
+    const systemDays = Math.floor(systemUptimeMs / (1000 * 60 * 60 * 24));
+    
+    // Average fronts per day
+    const avgFrontsPerDay = systemDays > 0 ? (totalSwitches / systemDays).toFixed(1) : totalSwitches;
+
+    return {
+      alterStats: statsArray,
+      totalSwitches,
+      systemDays,
+      avgFrontsPerDay,
+      totalAlters: alters.length,
+      activeAlters: statsArray.length
+    };
+  }, [switches, alters]);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -79,7 +145,111 @@ const SwitchTracker: React.FC = () => {
           <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Front History</h2>
           <p className="text-[var(--text-secondary)]">Log and analyze your system's fronting patterns.</p>
         </div>
+        <div className="flex gap-2 p-1 bg-[var(--bg-main)] rounded-xl border border-[var(--bg-panel)]">
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              activeTab === 'history'
+                ? 'bg-[var(--accent-main)] text-white'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <List size={18} />
+            History
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              activeTab === 'analytics'
+                ? 'bg-[var(--accent-main)] text-white'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <BarChart3 size={18} />
+            Analytics
+          </button>
+        </div>
       </div>
+
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && analytics && (
+        <div className="space-y-8">
+          {/* Overview Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-[var(--bg-surface)] rounded-3xl p-6 border border-[var(--bg-panel)] shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Total Switches</p>
+              <p className="text-3xl font-bold text-[var(--text-primary)]">{analytics.totalSwitches}</p>
+            </div>
+            <div className="bg-[var(--bg-surface)] rounded-3xl p-6 border border-[var(--bg-panel)] shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Tracking Days</p>
+              <p className="text-3xl font-bold text-[var(--text-primary)]">{analytics.systemDays}</p>
+            </div>
+            <div className="bg-[var(--bg-surface)] rounded-3xl p-6 border border-[var(--bg-panel)] shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Avg/Day</p>
+              <p className="text-3xl font-bold text-[var(--text-primary)]">{analytics.avgFrontsPerDay}</p>
+            </div>
+            <div className="bg-[var(--bg-surface)] rounded-3xl p-6 border border-[var(--bg-panel)] shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Active Alters</p>
+              <p className="text-3xl font-bold text-[var(--text-primary)]">{analytics.activeAlters}/{analytics.totalAlters}</p>
+            </div>
+          </div>
+
+          {/* Per-Alter Stats */}
+          <div className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm">
+            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6">Alter Fronting Statistics</h3>
+            <div className="space-y-4">
+              {analytics.alterStats.map((stat) => {
+                const hours = Math.floor(stat.totalMinutes / 60);
+                const days = Math.floor(hours / 24);
+                const remainingHours = hours % 24;
+                const percentage = ((stat.frontCount / analytics.totalSwitches) * 100).toFixed(1);
+                
+                return (
+                  <div key={stat.alterId} className="flex items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)]">
+                    <img
+                      src={stat.alterAvatar || `https://ui-avatars.com/api/?name=${stat.alterName}`}
+                      alt={stat.alterName}
+                      className="w-12 h-12 rounded-xl object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-bold text-[var(--text-primary)] truncate">{stat.alterName}</p>
+                        <p className="text-sm font-medium text-[var(--accent-main)]">{percentage}%</p>
+                      </div>
+                      <div className="w-full h-2 bg-[var(--bg-panel)] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-[var(--accent-main)]" 
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right whitespace-nowrap">
+                      <p className="text-sm font-bold text-[var(--text-primary)]">{stat.frontCount} fronts</p>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {days > 0 ? `${days}d ` : ''}{remainingHours}h
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'analytics' && !analytics && (
+        <div className="bg-[var(--bg-surface)] rounded-3xl p-12 border border-[var(--bg-panel)] shadow-sm text-center">
+          <BarChart3 size={48} className="mx-auto text-[var(--text-muted)] mb-4 opacity-50" />
+          <p className="text-[var(--text-muted)] italic">No switch data available yet.</p>
+          <p className="text-sm text-[var(--text-muted)] mt-2">Start logging switches to see analytics.</p>
+        </div>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+      <>
+      {/* Currently Fronting Section */}
 
       {/* Currently Fronting Section */}
       <div className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm">
@@ -339,6 +509,8 @@ const SwitchTracker: React.FC = () => {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
