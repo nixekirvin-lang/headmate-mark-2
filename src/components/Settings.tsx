@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { useTheme } from '../ThemeContext';
+import { useSystem } from '../SystemContext';
 import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Palette, Shield, User, Download, Trash2, Moon, Sun, Type, AlertTriangle, Save, Check, X, Upload, Camera, LogOut } from 'lucide-react';
+import { Palette, Shield, User, Download, Trash2, Moon, Sun, Type, AlertTriangle, Save, Check, X, Upload, Camera, LogOut, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ThemeConfig } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
@@ -33,6 +34,8 @@ const ACCENT_PRESETS = [
 const Settings: React.FC = () => {
   const { profile, user, logout } = useAuth();
   const { theme, updateTheme, saveTheme, deleteTheme, contrastWarning } = useTheme();
+  const { alters, switches } = useSystem();
+  const [isExporting, setIsExporting] = useState(false);
   const [newThemeName, setNewThemeName] = useState('');
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
@@ -565,9 +568,59 @@ const Settings: React.FC = () => {
             </h3>
             <div className="space-y-4">
               <div className="pt-4 border-t border-[var(--bg-panel)] space-y-3">
-                <button className="w-full flex items-center justify-between p-4 bg-[var(--bg-main)] rounded-2xl hover:bg-[var(--bg-panel)] transition-colors text-[var(--text-primary)]">
-                  <span className="font-medium">Export System Data</span>
-                  <Download size={18} className="text-[var(--text-muted)]" />
+                <button 
+                  onClick={async () => {
+                    if (!user) return;
+                    setIsExporting(true);
+                    try {
+                      // Gather all data
+                      const exportData: Record<string, unknown> = {
+                        profile: {
+                          uid: user.uid,
+                          displayName: profile?.displayName,
+                          systemName: profile?.systemName,
+                          bio: profile?.bio,
+                          isSinglet: profile?.isSinglet,
+                        },
+                        alters: alters,
+                        switches: switches,
+                        exportedAt: new Date().toISOString(),
+                      };
+
+                      // Fetch diary entries
+                      const diarySnapshot = await getDocs(collection(db, 'users', user.uid, 'diary'));
+                      exportData.diary = diarySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                      // Fetch internal messages
+                      const messagesSnapshot = await getDocs(collection(db, 'users', user.uid, 'internal_messages'));
+                      exportData.internalMessages = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                      // Create and download ZIP file
+                      const dataStr = JSON.stringify(exportData, null, 2);
+                      const blob = new Blob([dataStr], { type: 'application/json' });
+                      
+                      // Simple approach: download as JSON file (user can zip if needed)
+                      // For a true zip, we'd need a library like JSZip
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `headm8-export-${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } catch (error) {
+                      console.error('Export failed:', error);
+                      alert('Failed to export data. Please try again.');
+                    } finally {
+                      setIsExporting(false);
+                    }
+                  }}
+                  disabled={isExporting}
+                  className="w-full flex items-center justify-between p-4 bg-[var(--bg-main)] rounded-2xl hover:bg-[var(--bg-panel)] transition-colors text-[var(--text-primary)] disabled:opacity-50"
+                >
+                  <span className="font-medium">{isExporting ? 'Exporting...' : 'Export System Data'}</span>
+                  {isExporting ? <Loader2 size={18} className="text-[var(--text-muted)] animate-spin" /> : <Download size={18} className="text-[var(--text-muted)]" />}
                 </button>
                 <button 
                   onClick={logout}
