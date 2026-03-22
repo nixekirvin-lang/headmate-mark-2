@@ -89,14 +89,7 @@ const About: React.FC = () => {
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
             <strong>Visual Studio Code</strong> - Code editor used for development
           </li>
-          <li className="flex items-center gap-2 text-[var(--text-secondary)]">
-            <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>ChatGPT</strong> / <strong>Claude</strong> - AI assistants used for code generation
-          </li>
-          <li className="flex items-center gap-2 text-[var(--text-secondary)]">
-            <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
-            <strong>Cursor</strong> - AI-powered code editor used for development
-          </li>
+
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
             <strong>React</strong> + <strong>TypeScript</strong> - Frontend framework
