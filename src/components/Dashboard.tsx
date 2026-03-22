@@ -225,50 +225,94 @@ const Dashboard: React.FC = () => {
           <div className="pt-6 border-t border-[var(--bg-panel)]">
             <h4 className="text-sm font-bold flex items-center gap-2 mb-4 text-[var(--text-primary)]">
               <BarChart3 size={16} className="text-[var(--accent-main)]" />
-              Frequent Fronters
+              System Analytics
             </h4>
-            {/* Frequent Fronters List */}
+            {/* System Analytics - Enhanced with duration tracking */}
             {(() => {
-              const frontCounts: Record<string, number> = {};
-              switches.forEach(log => {
+              // Calculate front counts and estimated duration for each alter
+              const sortedSwitches = [...switches].sort((a, b) => 
+                new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+              );
+              
+              const frontData: Record<string, { count: number; totalDuration: number }> = {};
+              
+              sortedSwitches.forEach((log, index) => {
                 if (log.alterIds && Array.isArray(log.alterIds)) {
+                  // Calculate duration: time until next switch (or assume 1 hour if last)
+                  let duration = 60 * 60 * 1000; // Default 1 hour in ms
+                  if (index < sortedSwitches.length - 1) {
+                    const currentTime = new Date(log.timestamp).getTime();
+                    const nextTime = new Date(sortedSwitches[index + 1].timestamp).getTime();
+                    duration = Math.max(nextTime - currentTime, 60000); // At least 1 minute
+                  }
+                  
                   log.alterIds.forEach(id => {
-                    frontCounts[id] = (frontCounts[id] || 0) + 1;
+                    if (!frontData[id]) {
+                      frontData[id] = { count: 0, totalDuration: 0 };
+                    }
+                    frontData[id].count += 1;
+                    frontData[id].totalDuration += duration;
                   });
                 }
               });
               
-              const sortedFronters = Object.entries(frontCounts)
-                .map(([alterId, count]) => ({
+              const sortedFronters = Object.entries(frontData)
+                .map(([alterId, data]) => ({
                   alter: alters.find(a => a.id === alterId),
-                  count
+                  count: data.count,
+                  totalDuration: data.totalDuration
                 }))
                 .filter(item => item.alter)
-                .sort((a, b) => b.count - a.count)
+                .sort((a, b) => b.totalDuration - a.totalDuration)
                 .slice(0, 5);
+
+              // Format duration helper
+              const formatDuration = (ms: number) => {
+                const hours = Math.floor(ms / (1000 * 60 * 60));
+                const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+                if (hours > 0) {
+                  return `${hours}h ${minutes}m`;
+                }
+                return `${minutes}m`;
+              };
 
               if (sortedFronters.length === 0) {
                 return (
-                  <p className="text-sm text-[var(--text-muted)] italic">No switch data yet</p>
+                  <div className="text-center py-4">
+                    <p className="text-sm text-[var(--text-muted)] italic">No switch data yet</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">Start tracking switches to see analytics</p>
+                  </div>
                 );
               }
 
               return (
-                <div className="space-y-2">
-                  {sortedFronters.map(({ alter, count }) => (
-                    <div key={alter!.id} className="flex items-center gap-3 p-2 bg-[var(--bg-main)] rounded-xl border border-[var(--bg-panel)]">
-                      <img
-                        src={alter!.avatarUrl || `https://ui-avatars.com/api/?name=${alter!.name}`}
-                        alt={alter!.name}
-                        className="w-8 h-8 rounded-lg object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{alter!.name}</p>
+                <div className="space-y-3">
+                  {sortedFronters.map(({ alter, count, totalDuration }) => (
+                    <div key={alter!.id} className="p-3 bg-[var(--bg-main)] rounded-xl border border-[var(--bg-panel)]">
+                      <div className="flex items-center gap-3 mb-2">
+                        <img
+                          src={alter!.avatarUrl || `https://ui-avatars.com/api/?name=${alter!.name}`}
+                          alt={alter!.name}
+                          className="w-10 h-10 rounded-lg object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{alter!.name}</p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {count} {count === 1 ? 'switch' : 'switches'}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-xs font-bold px-2 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full">
-                        {count} {count === 1 ? 'front' : 'fronts'}
-                      </span>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div className="bg-[var(--bg-surface)] rounded-lg p-2 text-center">
+                          <p className="text-xs text-[var(--text-muted)] uppercase">Est. Time Fronting</p>
+                          <p className="text-sm font-bold text-[var(--accent-main)]">{formatDuration(totalDuration)}</p>
+                        </div>
+                        <div className="bg-[var(--bg-surface)] rounded-lg p-2 text-center">
+                          <p className="text-xs text-[var(--text-muted)] uppercase">Avg per Switch</p>
+                          <p className="text-sm font-bold text-[var(--accent-main)]">{formatDuration(totalDuration / count)}</p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
