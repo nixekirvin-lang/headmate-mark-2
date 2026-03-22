@@ -396,6 +396,7 @@ const AlterManager: React.FC = () => {
           </motion.div>
         )}
 
+        <AnimatePresence>
         {isAddingFolder && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -467,7 +468,9 @@ const AlterManager: React.FC = () => {
             </div>
           </motion.div>
         )}
+        </AnimatePresence>
 
+        <AnimatePresence>
         {folderForSelectingAlters && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -543,6 +546,7 @@ const AlterManager: React.FC = () => {
             </div>
           </motion.div>
         )}
+        </AnimatePresence>
 
         {isAdding && (
           <motion.div
