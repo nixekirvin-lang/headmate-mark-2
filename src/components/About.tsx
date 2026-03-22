@@ -47,13 +47,13 @@ const About: React.FC = () => {
           <h3 className="text-xl font-bold text-[var(--text-primary)]">Why We Created HeadM8</h3>
         </div>
         <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          HeadM8 was created in response to the sudden shutdown of two beloved applications that 
+          HeadM8 was created in response to the announced shutdowns of two beloved applications that 
           the plural community relied on: <strong>Simply Plural</strong> and <strong>Octocon</strong>.
         </p>
         <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-          When these platforms abruptly shut down, thousands of systems lost access to years of 
-          personal data, memories, and important tracking information. Many were left without 
-          alternatives for managing their systems.
+          When these platforms announced their upcoming closures, thousands of systems faced the prospect 
+          of losing access to years of personal data, memories, and important tracking information. 
+          Many were left without alternatives for managing their systems.
         </p>
         <p className="text-[var(--text-secondary)] leading-relaxed">
           HeadM8 was built to provide a community-owned, transparent alternative that puts system 
