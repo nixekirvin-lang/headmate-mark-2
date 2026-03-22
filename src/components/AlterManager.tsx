@@ -4,7 +4,7 @@ import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Edit2, Trash2, X, Check, Shield, ShieldOff, Tag, Download, RefreshCw, Eye, Folder, FolderPlus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Shield, ShieldOff, Tag, Download, RefreshCw, Eye, Folder, FolderPlus, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { Alter, AlterFolder } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 import { cn } from '../lib/utils';
@@ -671,77 +671,113 @@ const AlterManager: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="space-y-6">
-        {/* Folders Section */}
-        {folders.length > 0 && (
-          <div className="space-y-4">
+      {/* Folders Section - Displayed as bubbles at top */}
+      <div className="bg-[var(--bg-surface)] rounded-3xl p-6 border border-[var(--bg-panel)] shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Folder size={20} className="text-[var(--accent-main)]" />
+            Folders
+          </h3>
+          <button
+            onClick={openNewFolderForm}
+            className="flex items-center gap-1 px-3 py-1.5 bg-[var(--accent-main)] text-white text-sm rounded-xl font-bold hover:bg-[var(--accent-hover)] transition-all"
+          >
+            <Plus size={16} />
+            New Folder
+          </button>
+        </div>
+        {folders.length > 0 ? (
+          <div className="flex flex-wrap gap-3">
             {folders.map(folder => {
               const folderAlters = alters.filter(a => a.folderId === folder.id);
               const isExpanded = expandedFolders.has(folder.id);
               return (
-                <div key={folder.id} className="space-y-3">
-                  <div className="flex items-center gap-3 p-4 bg-[var(--bg-surface)] rounded-2xl border border-[var(--bg-panel)] group">
-                    <button
-                      onClick={() => toggleFolderExpanded(folder.id)}
-                      className="p-1 hover:bg-[var(--bg-panel)] rounded transition-colors"
-                    >
-                      {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                    </button>
-                    <Folder size={20} style={{ color: folder.color }} />
-                    <div className="flex-1">
-                      <h3 className="font-bold text-[var(--text-primary)]">{folder.name}</h3>
-                      {folder.description && (
-                        <p className="text-xs text-[var(--text-secondary)]">{folder.description}</p>
-                      )}
+                <div key={folder.id} className="relative">
+                  <button
+                    onClick={() => toggleFolderExpanded(folder.id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] rounded-xl border-2 transition-all hover:border-[var(--accent-main)] group"
+                    style={{ borderColor: isExpanded ? folder.color : 'var(--bg-panel)' }}
+                  >
+                    <Folder size={16} style={{ color: folder.color }} />
+                    <span className="font-medium text-[var(--text-primary)]">{folder.name}</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-[var(--bg-panel)] rounded-full text-[var(--text-muted)]">
+                      {folderAlters.length}
+                    </span>
+                    <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openFolderAlterSelection(folder); }}
+                        className="p-1 bg-[var(--accent-main)] text-white rounded-full hover:bg-[var(--accent-hover)]"
+                        title="Add alters"
+                      >
+                        <Plus size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openFolderEdit(folder); }}
+                        className="p-1 bg-[var(--bg-panel)] text-[var(--text-secondary)] rounded-full hover:bg-[var(--bg-surface)]"
+                        title="Edit"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                        className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                        title="Delete"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
-                    <span className="text-sm font-medium text-[var(--text-muted)]">{folderAlters.length} alter{folderAlters.length !== 1 ? 's' : ''}</span>
-                    <button
-                      onClick={() => openFolderAlterSelection(folder)}
-                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:text-[var(--accent-main)] rounded-full"
-                      title="Manage alters in folder"
-                    >
-                      <Plus size={16} />
-                    </button>
-                    <button
-                      onClick={() => openFolderEdit(folder)}
-                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--bg-panel)] rounded-full"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteFolder(folder.id)}
-                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10 text-red-500 rounded-full"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  {isExpanded && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-4">
-                      {folderAlters.map((alter) => (
-                        <AlterCard key={alter.id} alter={alter} onView={setViewAlter} onEdit={openEdit} onDelete={handleDelete} />
-                      ))}
+                  </button>
+                  {/* Dropdown with alters */}
+                  {isExpanded && folderAlters.length > 0 && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-[var(--bg-surface)] rounded-2xl border border-[var(--bg-panel)] shadow-xl z-20 p-3">
+                      <p className="text-xs font-bold text-[var(--text-muted)] mb-2 uppercase">Alters in {folder.name}</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {folderAlters.map((alter) => (
+                          <div 
+                            key={alter.id} 
+                            className="flex items-center gap-2 p-2 bg-[var(--bg-main)] rounded-xl cursor-pointer hover:bg-[var(--bg-panel)]"
+                            onClick={() => { setViewAlter(alter); toggleFolderExpanded(folder.id); }}
+                          >
+                            <img
+                              src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
+                              alt={alter.name}
+                              className="w-8 h-8 rounded-lg object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <span className="text-sm font-medium text-[var(--text-primary)] truncate">{alter.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+        ) : (
+          <p className="text-sm text-[var(--text-muted)] italic">No folders yet. Create a folder to organize your alters.</p>
         )}
+      </div>
 
-        {/* Unfiled Alters Section */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <Folder size={20} />
-              Unfiled Alters
-            </h3>
-          </div>
+      {/* All Alters Section */}
+      <div>
+        <div className="mb-4">
+          <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Users size={20} />
+            All Alters ({alters.length})
+          </h3>
+        </div>
+        {alters.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {alters.filter(a => !a.folderId).map((alter) => (
+            {alters.map((alter) => (
               <AlterCard key={alter.id} alter={alter} onView={setViewAlter} onEdit={openEdit} onDelete={handleDelete} />
             ))}
           </div>
-        </div>
+        ) : (
+          <div className="text-center py-12 bg-[var(--bg-surface)] rounded-3xl border border-dashed border-[var(--bg-panel)]">
+            <p className="text-[var(--text-muted)] italic">No alters yet. Add your first alter to get started!</p>
+          </div>
+        )}
       </div>
 
       {/* View Alter Modal */}
