@@ -2,6 +2,7 @@ export interface ThemeConfig {
   background: string;
   accent: string;
   text: string;
+  alterTextColor?: string;
   isDark: boolean;
   highContrast: boolean;
   fontSize: 'small' | 'medium' | 'large';

@@ -227,6 +227,42 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
+            {/* Alter Text Color */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Alter Profile Text Color</label>
+              <p className="text-xs text-[var(--text-secondary)]">Choose a text color for alter profiles for better readability</p>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-2">
+                  {['#1a1a1a', '#4a4a4a', '#f5f5f5', '#ffffff', '#a855f7', '#3b82f6', '#10b981', '#f59e0b'].map((hex) => (
+                    <button
+                      key={hex}
+                      onClick={() => updateTheme({ alterTextColor: hex })}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-all",
+                        theme.alterTextColor === hex ? "border-[var(--accent-main)] scale-110" : "border-gray-300 dark:border-gray-600"
+                      )}
+                      style={{ backgroundColor: hex }}
+                    />
+                  ))}
+                </div>
+                <input 
+                  type="color" 
+                  value={theme.alterTextColor || theme.text}
+                  onChange={(e) => updateTheme({ alterTextColor: e.target.value })}
+                  className="w-8 h-8 rounded-full border-2 border-transparent bg-transparent cursor-pointer"
+                />
+                {theme.alterTextColor && (
+                  <button
+                    onClick={() => updateTheme({ alterTextColor: undefined })}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    title="Reset to default"
+                  >
+                    <X size={14} /> Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Toggles */}
             <div className="grid grid-cols-2 gap-4 pt-4">
               <button

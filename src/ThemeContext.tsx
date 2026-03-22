@@ -82,11 +82,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     root.style.setProperty('--text-secondary', text.alpha(0.7).css());
     root.style.setProperty('--text-muted', text.alpha(0.4).css());
     
-    // Font settings
-    root.style.setProperty('--font-size-base', 
-      theme.fontSize === 'small' ? '14px' : 
-      theme.fontSize === 'large' ? '18px' : '16px'
-    );
+    // Font settings - small = 10% smaller, medium = normal, large = 10% larger
+    const baseSize = 16;
+    const fontSizePx = theme.fontSize === 'small' 
+      ? baseSize * 0.9  // 10% smaller = 14.4px
+      : theme.fontSize === 'large' 
+        ? baseSize * 1.1  // 10% larger = 17.6px
+        : baseSize;  // normal = 16px
+    root.style.setProperty('--font-size-base', `${fontSizePx}px`);
+    
+    // Alter text color
+    if (theme.alterTextColor) {
+      root.style.setProperty('--alter-text-color', theme.alterTextColor);
+    } else {
+      root.style.setProperty('--alter-text-color', theme.text);
+    }
     
     if (theme.dyslexiaFont) {
       root.classList.add('dyslexia-font');

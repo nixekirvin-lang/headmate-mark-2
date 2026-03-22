@@ -3,25 +3,33 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ThemeProvider } from './ThemeContext';
 import { SystemProvider } from './SystemContext';
 import Layout from './Layout';
-import AuthPage from './components/AuthPage';
-import Dashboard from './components/Dashboard';
-import AlterManager from './components/AlterManager';
-import Diary from './components/Diary';
-import SwitchTracker from './components/SwitchTracker';
-import InternalChat from './components/InternalChat';
-import SocialFeed from './components/SocialFeed';
-import Resources from './components/Resources';
-import Settings from './components/Settings';
-import ProfilePage from './components/ProfilePage';
-import FriendsList from './components/FriendsList';
-import Notifications from './components/Notifications';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Lazy load heavy components for code splitting
+const AuthPage = lazy(() => import('./components/AuthPage'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const AlterManager = lazy(() => import('./components/AlterManager'));
+const Diary = lazy(() => import('./components/Diary'));
+const SwitchTracker = lazy(() => import('./components/SwitchTracker'));
+const InternalChat = lazy(() => import('./components/InternalChat'));
+const SocialFeed = lazy(() => import('./components/SocialFeed'));
+const Resources = lazy(() => import('./components/Resources'));
+const Settings = lazy(() => import('./components/Settings'));
+const ProfilePage = lazy(() => import('./components/ProfilePage'));
+const FriendsList = lazy(() => import('./components/FriendsList'));
+const Notifications = lazy(() => import('./components/Notifications'));
+
+const LoadingFallback: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-950">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+  </div>
+);
 
 const AppContent: React.FC = () => {
   const { user, loading, profile } = useAuth();
@@ -74,15 +82,15 @@ const AppContent: React.FC = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   if (!user) {
-    return <AuthPage />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <AuthPage />
+      </Suspense>
+    );
   }
 
   const handleViewProfile = (uid: string) => {
@@ -120,7 +128,9 @@ const AppContent: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={handleTabChange}>
-      {renderContent()}
+      <Suspense fallback={<LoadingFallback />}>
+        {renderContent()}
+      </Suspense>
     </Layout>
   );
 };

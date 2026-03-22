@@ -24,6 +24,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
   const [posts, setPosts] = useState<Post[]>([]);
   const [currentFronters, setCurrentFronters] = useState<Alter[]>([]);
   const [systemMembers, setSystemMembers] = useState<Alter[]>([]);
+  const [friends, setFriends] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [friendshipStatus, setFriendshipStatus] = useState<'none' | 'pending' | 'accepted'>('none');
@@ -66,6 +67,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
 
     return unsubProfile;
   }, [userId]);
+
+  // Fetch friends when profile loads
+  useEffect(() => {
+    if (!profile?.friendIds || profile.friendIds.length === 0) {
+      setFriends([]);
+      return;
+    }
+
+    const fetchFriends = async () => {
+      const friendPromises = profile.friendIds.map(id => getDoc(doc(db, 'users', id)));
+      const friendSnaps = await Promise.all(friendPromises);
+      setFriends(friendSnaps.map(s => ({ uid: s.id, ...s.data() } as UserProfile)));
+    };
+    fetchFriends();
+  }, [profile?.friendIds]);
 
   useEffect(() => {
     if (!currentProfile || !userId) return;
@@ -131,9 +147,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
     // Fetch current fronters - only if owner or friend
     let unsubSwitches = () => {};
     const isOwner = currentUser.uid === userId;
-    const isFriend = currentProfile.friendIds?.includes(userId);
+    // Check if current user is in the viewed user's friend list (they added you)
+    const isFriend = profile?.friendIds?.includes(currentUser.uid);
+    // Also check if you have them in your friend list (mutual or you added them)
+    const isFriendOfViewed = currentProfile.friendIds?.includes(userId);
+    const canViewFronters = isFriend || isFriendOfViewed;
     
-    if (isOwner || isFriend) {
+    if (isOwner || canViewFronters) {
       const switchQ = query(
         collection(db, 'users', userId, 'switches'),
         orderBy('timestamp', 'desc'),
@@ -143,6 +163,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
         try {
           if (!snap.empty) {
             const lastSwitch = snap.docs[0].data() as SwitchLog;
+            // Safe check for alterIds - skip if missing or empty
+            if (!lastSwitch.alterIds || lastSwitch.alterIds.length === 0) {
+              setCurrentFronters([]);
+              return;
+            }
             const alterPromises = lastSwitch.alterIds.map(id => getDoc(doc(db, 'users', userId, 'alters', id)));
             const alterSnaps = await Promise.all(alterPromises);
             setCurrentFronters(alterSnaps.map(s => ({ id: s.id, ...s.data() } as Alter)));
@@ -237,14 +262,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
     if (!window.confirm('Are you sure you want to unfriend this user?')) return;
     
     try {
+      // Get current friend counts
+      const currentUserDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const targetUserDoc = await getDoc(doc(db, 'users', userId));
+      const currentUserData = currentUserDoc.data() as UserProfile;
+      const targetUserData = targetUserDoc.data() as UserProfile;
+      
+      const currentFriendsCount = Math.max(0, (currentUserData?.friendIds?.length || 1) - 1);
+      const targetFriendsCount = Math.max(0, (targetUserData?.friendIds?.length || 1) - 1);
+
       // Remove from current user's friendIds
       await updateDoc(doc(db, 'users', currentUser.uid), {
-        friendIds: arrayRemove(userId)
+        friendIds: arrayRemove(userId),
+        friendsCount: currentFriendsCount
       });
       
       // Remove from the other user's friendIds
       await updateDoc(doc(db, 'users', userId), {
-        friendIds: arrayRemove(currentUser.uid)
+        friendIds: arrayRemove(currentUser.uid),
+        friendsCount: targetFriendsCount
       });
       
       // Delete the friendship document
@@ -440,8 +476,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
           <div className="mb-2">
             <h2 className="text-3xl font-bold text-white tracking-tight">{profile.displayName || profile.systemName}</h2>
             <p className="text-white/80 font-medium">@{profile.username || 'user'}</p>
-            {/* Only show current fronters to owner or friends */}
-            {!profile.isSinglet && currentFronters.length > 0 && (currentUser?.uid === userId || currentProfile?.friendIds?.includes(userId)) && (
+            {/* Only show current fronters to owner or friends (either mutual or viewed user added you) */}
+            {!profile?.isSinglet && currentFronters.length > 0 && (currentUser?.uid === userId || currentProfile?.friendIds?.includes(userId) || profile?.friendIds?.includes(currentUser?.uid)) && (
               <p className="text-[var(--accent-main)] font-bold text-sm mt-1">
                 Currently Fronting: {currentFronters.map(f => f.name).join(', ')}
               </p>
@@ -830,21 +866,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
           </section>
 
           {/* Friends List */}
-          {profile.friendIds && profile.friendIds.length > 0 && (
+          {friends.length > 0 && (
             <section className="bg-[var(--bg-surface)] p-8 rounded-3xl border border-[var(--bg-panel)] shadow-sm space-y-4">
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Friends ({profile.friendIds.length})</h3>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Friends ({friends.length})</h3>
               <div className="space-y-3 max-h-80 overflow-y-auto">
-                {profile.friendIds.map((friendId) => (
+                {friends.map((friend) => (
                   <motion.button
-                    key={friendId}
-                    onClick={() => onAuthorClick?.(friendId)}
+                    key={friend.uid}
+                    onClick={() => onAuthorClick?.(friend.uid)}
                     whileHover={{ x: 4 }}
                     className="w-full flex items-center gap-3 p-3 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)] hover:border-[var(--accent-main)] transition-all text-left"
                   >
-                    <div className="w-10 h-10 bg-[var(--bg-panel)] rounded-full flex-shrink-0" />
+                    <img src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${friend.displayName || friend.systemName}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">Friend</p>
-                      <p className="text-xs text-[var(--text-muted)] truncate">{friendId}</p>
+                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{friend.displayName || friend.systemName}</p>
+                      <p className="text-xs text-[var(--text-muted)] truncate">@{friend.username}</p>
                     </div>
                   </motion.button>
                 ))}
@@ -852,8 +888,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
             </section>
           )}
 
-          {/* Show system members to owner or friends */}
-          {!profile.isSinglet && (currentUser?.uid === userId || currentProfile?.friendIds?.includes(userId)) && (
+          {/* Show system members to owner or friends (either mutual or viewed user added you) */}
+          {!profile?.isSinglet && (currentUser?.uid === userId || currentProfile?.friendIds?.includes(userId) || profile?.friendIds?.includes(currentUser?.uid)) && (
             <section className="bg-[var(--bg-surface)] p-8 rounded-3xl border border-[var(--bg-panel)] shadow-sm">
               <h3 className="text-lg font-bold mb-4 text-[var(--text-primary)]">System Members ({systemMembers.length})</h3>
               <div className="space-y-3">
@@ -861,9 +897,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
                   <div key={alter.id} className="flex items-center gap-3 p-3 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)]">
                     <img src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`} className="w-10 h-10 rounded-xl object-cover" referrerPolicy="no-referrer" />
                     <div>
-                      <p className="font-bold text-sm text-[var(--text-primary)]">{alter.name}</p>
+                      <p className="font-bold text-sm" style={{ color: 'var(--alter-text-color)' }}>{alter.name}</p>
                       {alter.description && (
-                        <p className="text-[10px] text-[var(--text-muted)] line-clamp-1">{alter.description}</p>
+                        <p className="text-[10px] line-clamp-1" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{alter.description}</p>
                       )}
                     </div>
                   </div>

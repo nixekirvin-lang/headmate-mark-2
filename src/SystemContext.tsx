@@ -58,8 +58,9 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [user, isAuthReady]);
 
+  // Safe check for alterIds - only include alters if the switch has valid alterIds array
   const currentFronters = alters.filter(alter => 
-    switches[0]?.alterIds.includes(alter.id)
+    switches[0]?.alterIds && Array.isArray(switches[0].alterIds) && switches[0].alterIds.includes(alter.id)
   );
 
   return (

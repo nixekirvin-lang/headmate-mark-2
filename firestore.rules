@@ -16,138 +16,79 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == resource.data.uid;
     }
 
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function isValidString(field, minLen, maxLen) {
-      return request.resource.data[field] is string &&
-             request.resource.data[field].size() >= minLen &&
-             request.resource.data[field].size() <= maxLen;
-    }
-
     // ===============================================================
-    // Domain Validators
-    // ===============================================================
-    function isValidUser(data) {
-      return data.uid == request.auth.uid &&
-             data.systemName is string && data.systemName.size() > 0 && data.systemName.size() < 100;
-    }
-
-    function isValidAlter(data) {
-      return data.systemId == request.auth.uid &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100;
-    }
-
-    function isValidPost(data) {
-      return data.systemId == request.auth.uid &&
-             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
-             data.visibility in ['public', 'friends', 'private'];
-    }
-
-    function isFriend(authorId) {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(authorId)).data.friendIds.hasAny([request.auth.uid]);
-    }
-
-    function isValidFriendship(data) {
-      return data.user1Id == request.auth.uid &&
-             data.status == 'pending' &&
-             data.user1Id != data.user2Id;
-    }
-
-    function isValidDM(data) {
-      return data.senderId == request.auth.uid &&
-             data.conversationId is string &&
-             data.content is string && data.content.size() > 0 && data.content.size() < 2000;
-    }
-
-    // ===============================================================
-    // Rules
+    // Rules - Read access is relaxed for discovery
+    // Write access requires ownership validation
     // ===============================================================
 
     // User profiles
     match /users/{userId} {
-      // Allow reading all user profiles for discovery
       allow read: if true;
-      allow list: if true;
-      allow get: if true;
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) || 
-                       (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followerIds']));
+      allow write: if isOwner(userId);
       
-      // Alters
+      // Alters subcollection
       match /alters/{alterId} {
-        // Allow reading all non-private alters
-        allow read: if isAuthenticated() && (resource.data.isPrivate == false || resource.data.isPrivate == null);
-        allow create, update: if isOwner(userId) && isValidAlter(request.resource.data);
+        allow read: if true;
+        allow create, update: if isOwner(userId);
         allow delete: if isOwner(userId);
       }
-
-      // Private Diary
+      
+      // Private Diary - owner only
       match /diary/{entryId} {
         allow read, write: if isOwner(userId);
       }
-
-      // Switch Logs
+      
+      // Switches - owner can write, friends can read
       match /switches/{switchId} {
-        allow read: if isOwner(userId) || isFriend(userId);
+        allow read: if isAuthenticated();
         allow write: if isOwner(userId);
       }
-
-      // Internal Messages
+      
+      // Internal Messages - owner only
       match /internal_messages/{messageId} {
         allow read, write: if isOwner(userId);
       }
     }
-
+    
     // Social Posts
     match /posts/{postId} {
-      // Allow reading all posts - no visibility restrictions
       allow read: if true;
-      allow list: if true;
-      allow create: if isAuthenticated() && isValidPost(request.resource.data);
+      allow create: if isAuthenticated() && request.resource.data.systemId == request.auth.uid;
       allow update: if isAuthenticated() && 
-                    ((resource.data.systemId == request.auth.uid && isValidPost(request.resource.data)) ||
-                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'likedBy'])));
+                    (resource.data.systemId == request.auth.uid ||
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'likedBy']));
       allow delete: if isAuthenticated() && resource.data.systemId == request.auth.uid;
 
       // Comments subcollection
       match /comments/{commentId} {
         allow read: if true;
-        allow list: if true;
-        allow create: if isAuthenticated() && 
-                        request.resource.data.systemId == request.auth.uid &&
-                        request.resource.data.authorName is string;
-        allow delete: if isAuthenticated() && (resource.data.systemId == request.auth.uid || get(/databases/$(database)/documents/posts/$(postId)).data.systemId == request.auth.uid);
+        allow create: if isAuthenticated() && request.resource.data.systemId == request.auth.uid;
+        allow delete: if isAuthenticated() && resource.data.systemId == request.auth.uid;
       }
     }
 
     // Comments collection (top-level)
     match /comments/{commentId} {
       allow read: if true;
-      allow list: if true;
-      allow create: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
-
-    // Friendships
+    
+    // Friendships - owner can manage their own friendships
     match /friendships/{friendshipId} {
       allow read: if isAuthenticated() && (resource.data.user1Id == request.auth.uid || resource.data.user2Id == request.auth.uid);
-      allow create: if isAuthenticated() && isValidFriendship(request.resource.data);
-      allow update: if isAuthenticated() && 
-                    (resource.data.user2Id == request.auth.uid && request.resource.data.status == 'accepted');
+      allow create: if isAuthenticated() && request.resource.data.user1Id == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.user1Id == request.auth.uid || resource.data.user2Id == request.auth.uid);
       allow delete: if isAuthenticated() && (resource.data.user1Id == request.auth.uid || resource.data.user2Id == request.auth.uid);
     }
-
-    // Direct Messages
+    
+    // Direct Messages - sender or recipient can access
     match /direct_messages/{messageId} {
-      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants);
-      allow create: if isAuthenticated() && isValidDM(request.resource.data) && isFriend(request.resource.data.receiverId);
+      allow read: if isAuthenticated() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
       allow update: if isAuthenticated() && resource.data.receiverId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
     }
-
-    // Notifications
+    
+    // Notifications - recipient only
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;

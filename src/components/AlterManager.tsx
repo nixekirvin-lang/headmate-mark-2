@@ -502,9 +502,9 @@ const AlterManager: React.FC = () => {
                         referrerPolicy="no-referrer"
                       />
                       <div className="flex-1">
-                        <h4 className="font-bold text-[var(--text-primary)]">{alter.name}</h4>
+                        <h4 className="font-bold" style={{ color: 'var(--alter-text-color)' }}>{alter.name}</h4>
                         {alter.description && (
-                          <p className="text-sm text-[var(--text-secondary)] line-clamp-1">{alter.description}</p>
+                          <p className="text-sm line-clamp-1" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{alter.description}</p>
                         )}
                       </div>
                       {alter.tags && alter.tags.length > 0 && (
@@ -778,9 +778,9 @@ const AlterManager: React.FC = () => {
                   className="w-24 h-24 rounded-3xl object-cover mx-auto mb-4 border-4 border-[var(--accent-main)]"
                   referrerPolicy="no-referrer"
                 />
-                <h4 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{viewAlter.name}</h4>
+                <h4 className="text-2xl font-bold mb-2" style={{ color: 'var(--alter-text-color)' }}>{viewAlter.name}</h4>
                 {viewAlter.description && (
-                  <p className="text-[var(--text-secondary)] mb-4">{viewAlter.description}</p>
+                  <p className="mb-4" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{viewAlter.description}</p>
                 )}
                 <div className="flex items-center justify-center gap-2 mb-4">
                   {viewAlter.isPrivate ? (
@@ -862,10 +862,10 @@ const AlterCard: React.FC<{
           referrerPolicy="no-referrer"
         />
         <div className="flex items-center gap-2 mb-1">
-          <h4 className="text-xl font-bold text-[var(--text-primary)]">{alter.name}</h4>
+          <h4 className="text-xl font-bold" style={{ color: 'var(--alter-text-color)' }}>{alter.name}</h4>
           {alter.isPrivate ? <Shield size={14} className="text-[var(--text-muted)]" /> : <ShieldOff size={14} className="text-green-500" />}
         </div>
-        <p className="text-sm text-[var(--text-secondary)] line-clamp-2 mb-4 min-h-[2.5rem]">
+        <p className="text-sm line-clamp-2 mb-4 min-h-[2.5rem]" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>
           {alter.description || 'No description provided.'}
         </p>
         <div className="flex flex-wrap gap-2">

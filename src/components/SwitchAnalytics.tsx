@@ -7,7 +7,8 @@ const SwitchAnalytics: React.FC = () => {
 
   const data = alters.map(alter => ({
     name: alter.name,
-    count: switches.filter(s => s.alterIds.includes(alter.id)).length
+    // Safe check for alterIds existence before filtering
+    count: switches.filter(s => s.alterIds && Array.isArray(s.alterIds) && s.alterIds.includes(alter.id)).length
   })).sort((a, b) => b.count - a.count).slice(0, 5);
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];

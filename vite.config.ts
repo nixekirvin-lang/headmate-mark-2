@@ -21,5 +21,29 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     appType: 'spa',
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              // Split large vendor libraries into separate chunks
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('lucide-react') || id.includes('clsx') || id.includes('tailwind-merge') || id.includes('chroma-js')) {
+                return 'vendor-ui';
+              }
+              if (id.includes('react-router-dom')) {
+                return 'vendor-router';
+              }
+              // Keep firebase together but handle properly
+              if (id.includes('firebase') || id.includes('@firebase')) {
+                return 'vendor-firebase';
+              }
+            }
+          },
+        },
+      },
+    },
   };
 });

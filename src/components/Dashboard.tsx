@@ -191,7 +191,7 @@ const Dashboard: React.FC = () => {
                     className="w-20 h-20 rounded-2xl object-cover border-2 border-[var(--accent-main)] p-1 shadow-lg shadow-[var(--accent-glow)] hover:scale-105 transition-transform"
                     referrerPolicy="no-referrer"
                   />
-                  <span className="font-semibold text-[var(--text-primary)]">{alter.name}</span>
+                  <span className="font-semibold" style={{ color: 'var(--alter-text-color)' }}>{alter.name}</span>
                 </div>
               ))
             ) : (
@@ -358,9 +358,9 @@ const Dashboard: React.FC = () => {
                   className="w-24 h-24 rounded-3xl object-cover mx-auto mb-4 border-4 border-[var(--accent-main)]"
                   referrerPolicy="no-referrer"
                 />
-                <h4 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{selectedAlter.name}</h4>
+                <h4 className="text-2xl font-bold mb-2" style={{ color: 'var(--alter-text-color)' }}>{selectedAlter.name}</h4>
                 {selectedAlter.description && (
-                  <p className="text-[var(--text-secondary)] mb-4">{selectedAlter.description}</p>
+                  <p className="mb-4" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{selectedAlter.description}</p>
                 )}
                 {selectedAlter.tags && selectedAlter.tags.length > 0 && (
                   <div className="flex flex-wrap justify-center gap-2 mb-4">
