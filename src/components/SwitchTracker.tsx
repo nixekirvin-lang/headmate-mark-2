@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDoc } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { Activity, Plus, Check, Clock, AlertCircle, Edit2, Save, X } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -15,9 +15,9 @@ const SwitchTracker: React.FC = () => {
   const [selectedAlters, setSelectedAlters] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [triggers, setTriggers] = useState('');
-  const [frontStatus, setFrontStatus] = useState('');
+  const [frontStatuses, setFrontStatuses] = useState<Record<string, string>>({});
   const [isLogging, setIsLogging] = useState(false);
-  const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null);
+  const [editingStatusFor, setEditingStatusFor] = useState<{ switchId: string; alterId: string } | null>(null);
   const [statusInput, setStatusInput] = useState('');
 
   const handleLogSwitch = async () => {
@@ -30,23 +30,25 @@ const SwitchTracker: React.FC = () => {
         timestamp: new Date().toISOString(),
         notes,
         triggers: triggers.split(',').map(t => t.trim()).filter(t => t),
-        frontStatus: frontStatus || undefined,
+        frontStatuses: Object.keys(frontStatuses).length > 0 ? frontStatuses : undefined,
       });
       setSelectedAlters([]);
       setNotes('');
       setTriggers('');
-      setFrontStatus('');
+      setFrontStatuses({});
       setIsLogging(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/switches`);
     }
   };
 
-  const handleUpdateStatus = async (switchId: string) => {
+  const handleUpdateStatus = async (switchId: string, alterId: string) => {
     if (!user || !statusInput.trim()) return;
     try {
+      const switchDoc = await getDoc(doc(db, 'users', user.uid, 'switches', switchId));
+      const currentStatuses = switchDoc.data()?.frontStatuses || {};
       await updateDoc(doc(db, 'users', user.uid, 'switches', switchId), {
-        frontStatus: statusInput,
+        frontStatuses: { ...currentStatuses, [alterId]: statusInput },
       });
       setEditingStatusFor(null);
       setStatusInput('');
@@ -55,9 +57,13 @@ const SwitchTracker: React.FC = () => {
     }
   };
 
-  const startEditingStatus = (switchId: string, currentStatus: string) => {
-    setEditingStatusFor(switchId);
+  const startEditingStatus = (switchId: string, alterId: string, currentStatus: string) => {
+    setEditingStatusFor({ switchId, alterId });
     setStatusInput(currentStatus);
+  };
+
+  const updateFrontStatus = (alterId: string, status: string) => {
+    setFrontStatuses(prev => ({ ...prev, [alterId]: status }));
   };
 
   const toggleAlter = (id: string) => {
@@ -85,7 +91,8 @@ const SwitchTracker: React.FC = () => {
           <div className="space-y-4">
             {currentFronters.map((alter) => {
               const currentSwitch = switches.find(s => s.alterIds?.includes(alter.id));
-              const isEditing = editingStatusFor === currentSwitch?.id;
+              const alterStatus = currentSwitch?.frontStatuses?.[alter.id] || '';
+              const isEditing = editingStatusFor?.switchId === currentSwitch?.id && editingStatusFor?.alterId === alter.id;
               
               return (
                 <div key={alter.id} className="flex flex-col md:flex-row md:items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border-2" style={{ borderColor: alter.themeConfig?.accent || 'var(--accent-main)' }}>
@@ -113,7 +120,7 @@ const SwitchTracker: React.FC = () => {
                           autoFocus
                         />
                         <button
-                          onClick={() => handleUpdateStatus(currentSwitch!.id)}
+                          onClick={() => handleUpdateStatus(currentSwitch!.id, alter.id)}
                           className="p-2 bg-[var(--accent-main)] text-white rounded-xl"
                         >
                           <Save size={16} />
@@ -125,13 +132,13 @@ const SwitchTracker: React.FC = () => {
                           <X size={16} />
                         </button>
                       </div>
-                    ) : currentSwitch?.frontStatus ? (
+                    ) : alterStatus ? (
                       <div className="flex items-center gap-2">
                         <span className="px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full text-sm">
-                          {currentSwitch.frontStatus}
+                          {alterStatus}
                         </span>
                         <button
-                          onClick={() => startEditingStatus(currentSwitch.id, currentSwitch.frontStatus || '')}
+                          onClick={() => startEditingStatus(currentSwitch!.id, alter.id, alterStatus)}
                           className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-main)]"
                         >
                           <Edit2 size={14} />
@@ -139,7 +146,7 @@ const SwitchTracker: React.FC = () => {
                       </div>
                     ) : (
                       <button
-                        onClick={() => startEditingStatus(currentSwitch?.id || '', '')}
+                        onClick={() => startEditingStatus(currentSwitch?.id || '', alter.id, '')}
                         className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-main)]"
                       >
                         + Add status
@@ -211,15 +218,31 @@ const SwitchTracker: React.FC = () => {
           </div>
 
           <div className="space-y-4 mb-8">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Front Status (optional)</label>
-              <input
-                value={frontStatus}
-                onChange={e => setFrontStatus(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none"
-                placeholder="e.g. Co-conscious, Watching, Active"
-              />
-            </div>
+            {selectedAlters.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Front Status (optional)</label>
+                {selectedAlters.map(alterId => {
+                  const alter = alters.find(a => a.id === alterId);
+                  return (
+                    <div key={alterId} className="flex items-center gap-3">
+                      <img
+                        src={alter?.avatarUrl || `https://ui-avatars.com/api/?name=${alter?.name || '?'}`}
+                        alt={alter?.name}
+                        className="w-8 h-8 rounded-lg object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <span className="text-sm font-medium text-[var(--text-primary)] w-24 truncate">{alter?.name}</span>
+                      <input
+                        value={frontStatuses[alterId] || ''}
+                        onChange={e => updateFrontStatus(alterId, e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none text-sm"
+                        placeholder="Set status for this alter..."
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
