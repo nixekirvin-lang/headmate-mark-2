@@ -489,6 +489,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
           {currentUser?.uid === userId ? (
             <>
               <button
+                onClick={() => setShowCreatePost(true)}
+                className="px-6 py-2 bg-[var(--accent-main)] text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-glow)]"
+              >
+                <Plus size={18} />
+                Create Post
+              </button>
+              <button
                 onClick={openEditProfile}
                 className="px-6 py-2 bg-[var(--accent-alt)] text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-glow)]"
               >
@@ -685,7 +692,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
             </motion.div>
           </div>
         )}
-        {false && showCreatePost && (
+        {showCreatePost && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
@@ -914,7 +921,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
 
         {/* Main Content: Posts */}
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-xl font-bold text-[var(--text-primary)] px-2">Forum Posts</h3>
+          <h3 className="text-xl font-bold text-[var(--text-primary)] px-2">Posts</h3>
           {posts.length > 0 ? (
             posts.map(post => (
               <PostCard
