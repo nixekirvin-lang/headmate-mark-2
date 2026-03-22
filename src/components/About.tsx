@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Heart, Code, Users, AlertCircle } from 'lucide-react';
+import { Heart, Code, Users, AlertCircle, MessageCircle } from 'lucide-react';
 
 const About: React.FC = () => {
   return (
@@ -116,11 +116,40 @@ const About: React.FC = () => {
         </ul>
       </motion.div>
 
-      {/* Credits Section */}
+      {/* The Quiet Room Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
+        className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-indigo-500/10 rounded-2xl">
+            <MessageCircle size={24} className="text-indigo-500" />
+          </div>
+          <h3 className="text-xl font-bold text-[var(--text-primary)]">Join Our Community</h3>
+        </div>
+        <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
+          <strong>The Quiet Room</strong> is our inclusive Discord community where plural systems and their 
+          supporters can connect, share experiences, and find understanding. Whether you're newly discovering 
+          your system or have been on this journey for years, you'll find a welcoming space here.
+        </p>
+        <a
+          href="https://discord.gg/thequietroom"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors"
+        >
+          <MessageCircle size={20} />
+          Join The Quiet Room
+        </a>
+      </motion.div>
+
+      {/* Credits Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
         className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm"
       >
         <div className="flex items-center gap-3 mb-6">
