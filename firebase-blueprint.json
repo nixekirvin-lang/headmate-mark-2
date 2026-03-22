@@ -1,0 +1,161 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A system user profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID." },
+        "username": { "type": "string", "description": "The user's unique username." },
+        "displayName": { "type": "string", "description": "The user's chosen display name." },
+        "systemName": { "type": "string", "description": "The name of the system." },
+        "bio": { "type": "string", "description": "The system's bio." },
+        "avatarUrl": { "type": "string", "description": "The system's profile picture URL." },
+        "bannerUrl": { "type": "string", "description": "The system's banner image URL." },
+        "isPrivate": { "type": "boolean", "description": "Whether the system is private." },
+        "followingIds": { "type": "array", "items": { "type": "string" } },
+        "followerIds": { "type": "array", "items": { "type": "string" } },
+        "friendIds": { "type": "array", "items": { "type": "string" } },
+        "isSinglet": { "type": "boolean", "description": "Whether the user is a singlet (not a plural system)." }
+      },
+      "required": ["uid", "username", "displayName", "systemName"]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "A relationship between two users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user1Id": { "type": "string" },
+        "user2Id": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "blocked"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "user1Id", "user2Id", "status", "timestamp"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "A private message between two users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isRead": { "type": "boolean" }
+      },
+      "required": ["id", "senderId", "receiverId", "conversationId", "participants", "content", "timestamp"]
+    },
+    "Alter": {
+      "title": "Alter",
+      "description": "An individual identity within a system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The alter's unique ID." },
+        "systemId": { "type": "string", "description": "The ID of the system this alter belongs to." },
+        "name": { "type": "string", "description": "The alter's name." },
+        "description": { "type": "string", "description": "A description of the alter." },
+        "avatarUrl": { "type": "string", "description": "The alter's profile picture URL." },
+        "bannerUrl": { "type": "string", "description": "The alter's banner image URL." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Roles like host, protector, etc." },
+        "customFields": { "type": "object", "description": "User-defined custom fields." },
+        "isPrivate": { "type": "boolean", "description": "Whether the alter is visible only to the system." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "systemId", "name"]
+    },
+    "DiaryEntry": {
+      "title": "DiaryEntry",
+      "description": "A private journal entry for an alter.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "alterId": { "type": "string" },
+        "systemId": { "type": "string" },
+        "content": { "type": "string" },
+        "mood": { "type": "string" },
+        "mediaUrls": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "alterId", "systemId", "content", "timestamp"]
+    },
+    "SwitchLog": {
+      "title": "SwitchLog",
+      "description": "A log of a switch event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "systemId": { "type": "string" },
+        "alterIds": { "type": "array", "items": { "type": "string" }, "description": "Alters currently fronting." },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" },
+        "triggers": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "systemId", "alterIds", "timestamp"]
+    },
+    "InternalMessage": {
+      "title": "InternalMessage",
+      "description": "A message sent between alters in the same system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "systemId": { "type": "string" },
+        "authorAlterId": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isPinned": { "type": "boolean" }
+      },
+      "required": ["id", "systemId", "authorAlterId", "content", "timestamp"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "A social media post.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "systemId": { "type": "string" },
+        "authorAlterId": { "type": "string" },
+        "content": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["public", "friends", "private"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "triggerWarnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "systemId", "content", "visibility", "timestamp"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification for a user interaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "type": { "type": "string", "enum": ["follow", "friend_request", "comment", "like"] },
+        "postId": { "type": "string" },
+        "commentId": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isRead": { "type": "boolean" }
+      },
+      "required": ["id", "recipientId", "senderId", "senderName", "type", "timestamp", "isRead"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profile data." },
+    "/users/{userId}/alters/{alterId}": { "schema": "Alter", "description": "Alters in the system." },
+    "/users/{userId}/diary/{entryId}": { "schema": "DiaryEntry", "description": "Private diary entries." },
+    "/users/{userId}/switches/{switchId}": { "schema": "SwitchLog", "description": "Switch history." },
+    "/users/{userId}/internal_messages/{messageId}": { "schema": "InternalMessage", "description": "Internal system chat." },
+    "/posts/{postId}": { "schema": "Post", "description": "Social feed posts." },
+    "/friendships/{friendshipId}": { "schema": "Friendship", "description": "Friendship records." },
+    "/direct_messages/{messageId}": { "schema": "DirectMessage", "description": "Private direct messages." },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications." }
+  }
+}

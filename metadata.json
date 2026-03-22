@@ -1,0 +1,8 @@
+{
+  "name": "HeadM8",
+  "description": "A modern, accessible, privacy-focused web application for systems to document alters, track switches, and connect with others.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
