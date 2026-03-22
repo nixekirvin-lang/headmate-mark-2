@@ -4,7 +4,7 @@ import { useAuth } from '../AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { Activity, Users, Clock, Plus, BarChart3, Book, X, User, Heart } from 'lucide-react';
 import { formatDate } from '../lib/utils';
-import SwitchAnalytics from './SwitchAnalytics';
+
 import { Alter, UserProfile } from '../types';
 import { db } from '../firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -225,9 +225,55 @@ const Dashboard: React.FC = () => {
           <div className="pt-6 border-t border-[var(--bg-panel)]">
             <h4 className="text-sm font-bold flex items-center gap-2 mb-4 text-[var(--text-primary)]">
               <BarChart3 size={16} className="text-[var(--accent-main)]" />
-              Top Fronters
+              Frequent Fronters
             </h4>
-            <SwitchAnalytics />
+            {/* Frequent Fronters List */}
+            {(() => {
+              const frontCounts: Record<string, number> = {};
+              switches.forEach(log => {
+                if (log.alterIds && Array.isArray(log.alterIds)) {
+                  log.alterIds.forEach(id => {
+                    frontCounts[id] = (frontCounts[id] || 0) + 1;
+                  });
+                }
+              });
+              
+              const sortedFronters = Object.entries(frontCounts)
+                .map(([alterId, count]) => ({
+                  alter: alters.find(a => a.id === alterId),
+                  count
+                }))
+                .filter(item => item.alter)
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5);
+
+              if (sortedFronters.length === 0) {
+                return (
+                  <p className="text-sm text-[var(--text-muted)] italic">No switch data yet</p>
+                );
+              }
+
+              return (
+                <div className="space-y-2">
+                  {sortedFronters.map(({ alter, count }) => (
+                    <div key={alter!.id} className="flex items-center gap-3 p-2 bg-[var(--bg-main)] rounded-xl border border-[var(--bg-panel)]">
+                      <img
+                        src={alter!.avatarUrl || `https://ui-avatars.com/api/?name=${alter!.name}`}
+                        alt={alter!.name}
+                        className="w-8 h-8 rounded-lg object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{alter!.name}</p>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full">
+                        {count} {count === 1 ? 'front' : 'fronts'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </motion.div>
 
