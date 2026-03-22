@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSystem } from '../SystemContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart3 } from 'lucide-react';
 
 const SwitchAnalytics: React.FC = () => {
   const { alters, switches } = useSystem();
@@ -10,6 +11,20 @@ const SwitchAnalytics: React.FC = () => {
     // Safe check for alterIds existence before filtering
     count: switches.filter(s => s.alterIds && Array.isArray(s.alterIds) && s.alterIds.includes(alter.id)).length
   })).sort((a, b) => b.count - a.count).slice(0, 5);
+
+  const hasData = data.some(d => d.count > 0);
+
+  if (!hasData) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center text-center px-4">
+        <div className="text-[var(--text-muted)]">
+          <BarChart3 size={32} className="mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No switch data yet</p>
+          <p className="text-xs opacity-70">Start tracking switches to see analytics</p>
+        </div>
+      </div>
+    );
+  }
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
