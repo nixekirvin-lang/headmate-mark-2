@@ -142,16 +142,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
     // Note: This query requires a composite index on systemId + timestamp
     const postsQ = query(
       collection(db, 'posts'),
-      where('systemId', '==', userId),
-      orderBy('timestamp', 'desc'),
-      limit(20)
+      where('systemId', '==', userId)
     );
     const unsubPosts = onSnapshot(postsQ, (snap) => {
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)));
+      const fetchedPosts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Post));
+      // Sort by timestamp descending in memory
+      fetchedPosts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setPosts(fetchedPosts.slice(0, 20));
     }, (error) => {
-      console.warn('Error fetching posts (may need composite index):', error);
-      // Don't crash - just show empty posts
-      setPosts([]);
+      console.warn('Error fetching posts:', error);
+      // Fallback: try without orderBy
+      const simpleQ = query(collection(db, 'posts'), where('systemId', '==', userId));
+      const unsubSimple = onSnapshot(simpleQ, (snap) => {
+        const fetchedPosts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Post));
+        fetchedPosts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setPosts(fetchedPosts.slice(0, 20));
+      });
+      return unsubSimple;
     });
 
     return unsubPosts;
