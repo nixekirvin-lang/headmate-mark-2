@@ -4,7 +4,7 @@ import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Edit2, Trash2, X, Check, Shield, ShieldOff, Tag, Download, RefreshCw, Eye, Folder, FolderPlus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Shield, ShieldOff, Tag, Download, RefreshCw, Eye, Folder, FolderPlus, ChevronDown, ChevronRight, Share2, Copy, CheckCircle } from 'lucide-react';
 import { Alter, AlterFolder } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 import { cn } from '../lib/utils';
@@ -16,7 +16,7 @@ const AlterManager: React.FC = () => {
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [isEditingFolder, setIsEditingFolder] = useState<AlterFolder | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [isImporting, setIsImporting] = useState<'sp' | 'pk' | null>(null);
+  const [isImporting, setIsImporting] = useState<'sp' | 'pk' | 'hm8' | null>(null);
   const [importToken, setImportToken] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -25,6 +25,8 @@ const AlterManager: React.FC = () => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderForSelectingAlters, setFolderForSelectingAlters] = useState<AlterFolder | null>(null);
   const [selectedAltersForFolder, setSelectedAltersForFolder] = useState<Set<string>>(new Set());
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportCopied, setExportCopied] = useState(false);
 
   const [folderFormData, setFolderFormData] = useState({
     name: '',
@@ -273,7 +275,7 @@ const AlterManager: React.FC = () => {
           systemId: user.uid,
           createdAt: new Date().toISOString()
         }));
-      } else {
+      } else if (isImporting === 'pk') {
         const response = await fetch('https://api.pluralkit.me/v2/systems/@me/members', {
           headers: { 'Authorization': importToken }
         });
@@ -289,6 +291,27 @@ const AlterManager: React.FC = () => {
           systemId: user.uid,
           createdAt: new Date().toISOString()
         }));
+      } else if (isImporting === 'hm8') {
+        // Parse HeadM8 export code
+        try {
+          const parsed = JSON.parse(importToken);
+          if (parsed.type !== 'headm8-alter') {
+            throw new Error('Invalid HeadM8 export code');
+          }
+          importedAlters = [{
+            name: parsed.name,
+            description: parsed.description || '',
+            avatarUrl: parsed.avatarUrl || '',
+            bannerUrl: parsed.bannerUrl || '',
+            tags: parsed.tags || [],
+            isPrivate: parsed.isPrivate ?? true,
+            themeConfig: parsed.themeConfig || {},
+            systemId: user.uid,
+            createdAt: new Date().toISOString()
+          }];
+        } catch (e) {
+          throw new Error('Invalid HeadM8 export code. Please paste the exact code provided.');
+        }
       }
 
       // Batch add to Firestore
@@ -340,6 +363,13 @@ const AlterManager: React.FC = () => {
             Import PK
           </button>
           <button
+            onClick={() => setIsImporting('hm8')}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-sm"
+          >
+            <Download size={18} />
+            Import HeadM8
+          </button>
+          <button
             onClick={() => { setIsAdding(true); setIsEditing(null); }}
             className="flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)]"
           >
@@ -360,7 +390,7 @@ const AlterManager: React.FC = () => {
             <div className="bg-[var(--bg-surface)] rounded-3xl p-8 w-full max-w-md shadow-2xl border border-[var(--bg-panel)]">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">
-                  Import from {isImporting === 'sp' ? 'Simply Plural' : 'PluralKit'}
+                  Import from {isImporting === 'sp' ? 'Simply Plural' : isImporting === 'pk' ? 'PluralKit' : 'HeadM8'}
                 </h3>
                 <button onClick={() => setIsImporting(null)} className="p-2 hover:bg-[var(--bg-panel)] rounded-full text-[var(--text-secondary)]">
                   <X size={24} />
@@ -371,7 +401,9 @@ const AlterManager: React.FC = () => {
                 <p className="text-sm text-[var(--text-secondary)]">
                   {isImporting === 'sp' 
                     ? 'Enter your Simply Plural API Key. You can find this in Settings > API.' 
-                    : 'Enter your PluralKit Token. You can get this by typing "pk;token" in Discord.'}
+                    : isImporting === 'pk' 
+                    ? 'Enter your PluralKit Token. You can get this by typing "pk;token" in Discord.'
+                    : 'Paste the HeadM8 export code you received from another user.'}
                 </p>
                 <input
                   type="password"
@@ -818,6 +850,88 @@ const AlterManager: React.FC = () => {
                 <p className="text-xs text-[var(--text-muted)]">
                   Created {new Date(viewAlter.createdAt).toLocaleDateString()}
                 </p>
+                <button
+                  onClick={() => setShowExportModal(true)}
+                  className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent-main)] text-white rounded-xl font-medium hover:bg-[var(--accent-hover)] transition-all w-full"
+                >
+                  <Share2 size={18} />
+                  Export Alter
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Alter Modal */}
+      <AnimatePresence>
+        {showExportModal && viewAlter && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowExportModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[var(--bg-surface)] rounded-3xl p-8 max-w-lg w-full border border-[var(--bg-panel)] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-[var(--text-primary)]">Export Alter</h3>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <p className="text-sm text-[var(--text-secondary)] mb-4">
+                Copy this code to share your alter with other HeadM8 users. They can import it using the Import feature.
+              </p>
+
+              <div className="relative">
+                <pre className="bg-[var(--bg-main)] p-4 rounded-xl text-xs text-[var(--text-secondary)] overflow-x-auto max-h-64 border border-[var(--bg-panel)]">
+{JSON.stringify({
+  type: 'headm8-alter',
+  version: 1,
+  name: viewAlter.name,
+  description: viewAlter.description || '',
+  avatarUrl: viewAlter.avatarUrl || '',
+  bannerUrl: viewAlter.bannerUrl || '',
+  tags: viewAlter.tags || [],
+  isPrivate: viewAlter.isPrivate,
+  themeConfig: viewAlter.themeConfig || {},
+  createdAt: viewAlter.createdAt,
+}, null, 2)}
+                </pre>
+                <button
+                  onClick={() => {
+                    const exportData = JSON.stringify({
+                      type: 'headm8-alter',
+                      version: 1,
+                      name: viewAlter.name,
+                      description: viewAlter.description || '',
+                      avatarUrl: viewAlter.avatarUrl || '',
+                      bannerUrl: viewAlter.bannerUrl || '',
+                      tags: viewAlter.tags || [],
+                      isPrivate: viewAlter.isPrivate,
+                      themeConfig: viewAlter.themeConfig || {},
+                      createdAt: viewAlter.createdAt,
+                    }, null, 2);
+                    navigator.clipboard.writeText(exportData);
+                    setExportCopied(true);
+                    setTimeout(() => setExportCopied(false), 2000);
+                  }}
+                  className="absolute top-2 right-2 flex items-center gap-2 px-3 py-1.5 bg-[var(--accent-main)] text-white text-xs rounded-lg font-medium hover:bg-[var(--accent-hover)] transition-all"
+                >
+                  {exportCopied ? <CheckCircle size={14} /> : <Copy size={14} />}
+                  {exportCopied ? 'Copied!' : 'Copy'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
