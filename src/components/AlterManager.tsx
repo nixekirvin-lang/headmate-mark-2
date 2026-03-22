@@ -775,7 +775,8 @@ const AlterManager: React.FC = () => {
                 <img
                   src={viewAlter.avatarUrl || `https://ui-avatars.com/api/?name=${viewAlter.name}`}
                   alt={viewAlter.name}
-                  className="w-24 h-24 rounded-3xl object-cover mx-auto mb-4 border-4 border-[var(--accent-main)]"
+                  className="w-24 h-24 rounded-3xl object-cover mx-auto mb-4 border-4"
+                  style={{ borderColor: viewAlter.themeConfig?.accent || 'var(--accent-main)' }}
                   referrerPolicy="no-referrer"
                 />
                 <h4 className="text-2xl font-bold mb-2" style={{ color: 'var(--alter-text-color)' }}>{viewAlter.name}</h4>

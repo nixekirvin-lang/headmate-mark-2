@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { Activity, Plus, Check, Clock, AlertCircle } from 'lucide-react';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, formatDuration, formatTimeRange } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 const SwitchTracker: React.FC = () => {
@@ -46,7 +46,7 @@ const SwitchTracker: React.FC = () => {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Switch Tracker</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Front History</h2>
           <p className="text-[var(--text-secondary)]">Log and analyze your system's fronting patterns.</p>
         </div>
         {!isLogging && (
@@ -147,6 +147,7 @@ const SwitchTracker: React.FC = () => {
                           src={alter?.avatarUrl || `https://ui-avatars.com/api/?name=${alter?.name || '?'}`}
                           alt={alter?.name}
                           className="w-12 h-12 rounded-2xl border-2 border-[var(--bg-surface)] object-cover shadow-sm"
+                          style={{ borderColor: alter?.themeConfig?.accent || 'var(--accent-main)' }}
                           referrerPolicy="no-referrer"
                         />
                       );
@@ -156,7 +157,8 @@ const SwitchTracker: React.FC = () => {
                     <p className="text-lg font-bold text-[var(--text-primary)]">
                       {log.alterIds.map(id => alters.find(a => a.id === id)?.name).join(' & ')}
                     </p>
-                    <p className="text-sm text-[var(--text-muted)]">{formatDate(log.timestamp)}</p>
+                    <p className="text-sm text-[var(--text-muted)]">{formatTimeRange(log.timestamp, switches[switches.indexOf(log) + 1]?.timestamp || null)}</p>
+                    <p className="text-xs text-[var(--accent-main)]">Duration: {formatDuration(log.timestamp, switches[switches.indexOf(log) + 1]?.timestamp || null)}</p>
                   </div>
                 </div>
                 

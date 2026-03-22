@@ -49,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     ...(!profile?.isSinglet ? [
       { id: 'alters', label: 'Alters', icon: Users },
-      { id: 'switches', label: 'Switches', icon: Activity },
+      { id: 'switches', label: 'Front History', icon: Activity },
       { id: 'chat', label: 'Internal Chat', icon: MessageSquare },
     ] : []),
     { id: 'diary', label: 'Diary', icon: Book },
