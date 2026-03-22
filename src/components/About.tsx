@@ -83,6 +83,14 @@ const About: React.FC = () => {
         <ul className="space-y-2">
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
             <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
+            <strong>Kilo Code</strong> - AI coding assistant that interpreted requirements and generated code
+          </li>
+          <li className="flex items-center gap-2 text-[var(--text-secondary)]">
+            <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
+            <strong>Visual Studio Code</strong> - Code editor used for development
+          </li>
+          <li className="flex items-center gap-2 text-[var(--text-secondary)]">
+            <span className="w-2 h-2 bg-[var(--accent-main)] rounded-full"></span>
             <strong>ChatGPT</strong> / <strong>Claude</strong> - AI assistants used for code generation
           </li>
           <li className="flex items-center gap-2 text-[var(--text-secondary)]">
