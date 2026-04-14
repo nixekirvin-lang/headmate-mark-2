@@ -442,7 +442,7 @@ const FriendsList: React.FC<FriendsListProps> = ({ onViewProfile, onMessageUser 
         <section className="bg-[var(--bg-surface)] p-8 rounded-3xl border border-[var(--bg-panel)] shadow-sm">
           <h3 className="text-xl font-bold mb-6 text-[var(--text-primary)]">Your Friends</h3>
           {friends.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {friends.map(friend => (
                 <div key={friend.uid} className="flex items-center justify-between p-4 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)]">
                   <div className="flex items-center gap-3">
@@ -571,7 +571,7 @@ const FriendsList: React.FC<FriendsListProps> = ({ onViewProfile, onMessageUser 
         <section className="bg-[var(--bg-surface)] p-8 rounded-3xl border border-[var(--bg-panel)] shadow-sm">
           <h3 className="text-xl font-bold mb-6 text-[var(--text-primary)]">People You May Know</h3>
           {allUsers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {allUsers.map(person => {
                 const isAlreadyFriend = profile?.friendIds?.includes(person.uid);
                 const requestSent = hasSentRequest(person.uid);

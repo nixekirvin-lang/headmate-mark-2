@@ -663,7 +663,7 @@ const SwitchTracker: React.FC = () => {
           Add Alter to Front
         </h3>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {alters.map((alter) => {
             const isFronting = currentFronters.some(f => f.id === alter.id);
             const isOrphaned = isOrphanedFronting(alter.id);

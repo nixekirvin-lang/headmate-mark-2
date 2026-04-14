@@ -372,7 +372,7 @@ const Resources: React.FC = () => {
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-6 pt-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-6 pt-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {region.resources.map((res, i) => (
                       <motion.a
                         initial={{ opacity: 0, y: 10 }}

@@ -172,7 +172,7 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ onAuthorClick }) => {
             className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-xl"
           >
             <form onSubmit={handlePost} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {!profile?.isSinglet && (
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Post as...</label>
