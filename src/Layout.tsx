@@ -67,9 +67,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   ];
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-main)] text-[var(--text-primary)]">
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[var(--bg-surface)] border-b border-[var(--bg-panel)] px-4 py-3 flex items-center justify-between safe-area-pt">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-[var(--bg-main)] text-[var(--text-primary)]">
+      {/* Mobile/Laptop Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[var(--bg-surface)] border-b border-[var(--bg-panel)] px-4 py-3 flex items-center justify-between safe-area-pt">
         <Logo size="small" />
         <button 
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -81,10 +81,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
       {/* Sidebar */}
       <aside className={cn(
-        "w-full md:w-64 bg-[var(--bg-surface)] md:border-r border-[var(--bg-panel)] flex flex-col fixed md:relative inset-0 z-40 pt-16 md:pt-0 transition-transform duration-300",
-        mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        "sidebar w-64 bg-[var(--bg-surface)] border-r border-[var(--bg-panel)] flex flex-col fixed lg:relative inset-0 z-40 pt-16 lg:pt-0 transition-transform duration-300",
+        mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="p-6 flex items-center gap-3 hidden md:flex">
+        <div className="p-6 flex items-center gap-3 hidden lg:flex">
           <Logo size="small" />
         </div>
 
@@ -134,8 +134,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-20 md:pt-6">
-        <div className="max-w-5xl mx-auto">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pt-20 lg:pt-6">
+        <div className="max-w-4xl lg:max-w-5xl mx-auto">
           {children}
         </div>
       </main>

@@ -7,6 +7,13 @@
   --font-dyslexia: "OpenDyslexic", "Comic Sans MS", sans-serif;
 }
 
+/* Responsive container for small desktops */
+@container (max-width: 1024px) {
+  .main-content {
+    max-width: 100%;
+  }
+}
+
 /* CSS custom properties */
 :root {
   --alter-text-color: var(--text-primary);
@@ -131,10 +138,15 @@ img {
   }
 }
 
-/* Tablet optimizations */
+/* Small desktop / tablet landscape */
 @media (min-width: 769px) and (max-width: 1024px) {
   html {
     font-size: 15px;
+  }
+  
+  .main-content {
+    max-width: 100%;
+    padding: 0 1rem;
   }
 }
 
@@ -142,6 +154,29 @@ img {
 @media (min-width: 1025px) {
   html {
     font-size: 16px;
+  }
+}
+
+/* Small desktop optimization - prevent squishing */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 220px;
+  }
+  
+  .main-content {
+    padding: 0.75rem;
+  }
+  
+  /* Make grids responsive at smaller sizes */
+  .grid-responsive {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Extra small desktop */
+@media (max-width: 640px) {
+  .grid-responsive {
+    grid-template-columns: 1fr;
   }
 }
 
