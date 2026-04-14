@@ -67,13 +67,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   ];
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-[var(--bg-main)] text-[var(--text-primary)]">
+    <div className={`min-h-screen flex flex-col lg:flex-row bg-[var(--bg-main)] text-[var(--text-primary)] ${mobileMenuOpen ? 'lg:overflow-hidden' : ''}`}>
       {/* Mobile/Laptop Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[var(--bg-surface)] border-b border-[var(--bg-panel)] px-4 py-3 flex items-center justify-between safe-area-pt">
-        <Logo size="small" />
+      <div className={`lg:hidden fixed top-0 left-0 right-0 z-50 bg-[var(--bg-surface)] border-b border-[var(--bg-panel)] px-4 py-3 flex items-center justify-between safe-area-pt transition-all duration-300 ${mobileMenuOpen ? 'lg:left-64' : ''}`}>
+        <Logo size={mobileMenuOpen ? 'small' : 'small'} />
         <button 
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl bg-[var(--bg-panel)] text-[var(--text-primary)]"
+          className={`p-2 rounded-xl bg-[var(--bg-panel)] text-[var(--text-primary)] ${mobileMenuOpen ? 'lg:hidden' : ''}`}
         >
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -81,14 +81,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
       {/* Sidebar */}
       <aside className={cn(
-        "sidebar w-64 bg-[var(--bg-surface)] border-r border-[var(--bg-panel)] flex flex-col fixed lg:relative inset-0 z-40 pt-16 lg:pt-0 transition-transform duration-300",
-        mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        `sidebar w-64 bg-[var(--bg-surface)] border-r border-[var(--bg-panel)] flex flex-col fixed inset-0 z-40 pt-16 lg:pt-0 transition-transform duration-300`,
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
-        <div className="p-6 flex items-center gap-3 hidden lg:flex">
-          <Logo size="small" />
+        <div className='p-6 flex items-center gap-3 hidden lg:flex'>
+          <Logo size='small' />
         </div>
 
-        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+        <nav className='flex-1 px-4 py-2 space-y-1 overflow-y-auto'>
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -101,16 +101,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                 }
               }}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all relative",
+                'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all relative',
                 activeTab === item.id
-                  ? "bg-[var(--accent-main)] text-white shadow-lg shadow-[var(--accent-glow)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-panel)]"
+                  ? 'bg-[var(--accent-main)] text-white shadow-lg shadow-[var(--accent-glow)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel)]'
               )}
             >
               <item.icon size={20} />
-              <span className="truncate">{item.label}</span>
+              <span className='truncate'>{item.label}</span>
               {item.id === 'notifications' && unreadCount > 0 && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center'>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
@@ -118,13 +118,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-[var(--bg-panel)]">
+        <div className='p-4 border-t border-[var(--bg-panel)]'>
           {user && (
-            <div className="flex items-center justify-end px-4 py-2">
+            <div className='flex items-center justify-end px-4 py-2'>
               <button
                 onClick={handleLogout}
-                className="p-2 text-[var(--text-muted)] hover:text-red-500 transition-colors"
-                title="Sign Out"
+                className='p-2 text-[var(--text-muted)] hover:text-red-500 transition-colors'
+                title='Sign Out'
               >
                 <LogOut size={16} />
               </button>
@@ -134,8 +134,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pt-20 lg:pt-6">
-        <div className="max-w-4xl lg:max-w-5xl mx-auto">
+      <main className={`flex-1 overflow-y-auto p-4 lg:p-6 pt-20 lg:pt-6 transition-all duration-300 ${mobileMenuOpen ? 'lg:ml-64' : ''}`}>
+        <div className={`mx-auto transition-all duration-300 ${mobileMenuOpen ? 'max-w-full' : 'max-w-5xl'}`}>
           {children}
         </div>
       </main>
@@ -143,8 +143,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       {/* Panic Button */}
       <button
         onClick={() => window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-red-600 transition-all z-50"
-        title="Panic Button"
+        className='fixed bottom-6 right-6 w-12 h-12 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-red-600 transition-all z-50'
+        title='Panic Button'
       >
         <ShieldAlert size={24} />
       </button>
