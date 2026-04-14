@@ -526,12 +526,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
 
       <AnimatePresence>
         {showEditProfile && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm safe-area-pb">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="w-full max-w-2xl bg-[var(--bg-surface)] rounded-[2.5rem] p-8 shadow-2xl border border-[var(--bg-panel)] max-h-[90vh] overflow-y-auto"
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="w-full bg-[var(--bg-surface)] rounded-t-3xl md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl border-t-2 md:border border-[var(--bg-panel)] max-h-[85vh] md:max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">Edit Profile</h3>
@@ -631,12 +631,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
           </div>
         )}
         {showListModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm safe-area-pb">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="w-full max-w-md bg-[var(--bg-surface)] rounded-[2.5rem] p-8 shadow-2xl border border-[var(--bg-panel)] max-h-[80vh] overflow-y-auto"
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="w-full bg-[var(--bg-surface)] rounded-t-3xl md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl border-t-2 md:border border-[var(--bg-panel)] max-h-[85vh] md:max-h-[80vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)] capitalize">{listType}</h3>
@@ -676,12 +676,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
           </div>
         )}
         {showCreatePost && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm safe-area-pb">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="w-full max-w-2xl bg-[var(--bg-surface)] rounded-[2.5rem] p-8 shadow-2xl border border-[var(--bg-panel)] max-h-[90vh] overflow-y-auto"
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="w-full bg-[var(--bg-surface)] rounded-t-3xl md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl border-t-2 md:border border-[var(--bg-panel)] max-h-[85vh] md:max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">Create New Post</h3>
