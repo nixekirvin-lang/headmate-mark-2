@@ -404,12 +404,17 @@ const AlterManager: React.FC = () => {
       <AnimatePresence>
         {isImporting && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/50 backdrop-blur-sm safe-area-pb"
           >
-            <div className="bg-[var(--bg-surface)] rounded-3xl p-8 w-full max-w-md shadow-2xl border border-[var(--bg-panel)]">
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="bg-[var(--bg-surface)] rounded-t-3xl p-6 w-full border-t-2 border-[var(--bg-panel)] shadow-2xl max-h-[85vh] overflow-y-auto"
+            >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">
                   Import from {isImporting === 'sp' ? 'Simply Plural' : 'PluralKit'}
@@ -444,7 +449,7 @@ const AlterManager: React.FC = () => {
                   {importLoading ? 'Importing...' : 'Start Import'}
                 </button>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
 
@@ -560,12 +565,17 @@ const AlterManager: React.FC = () => {
         <AnimatePresence>
         {folderForSelectingAlters && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/50 backdrop-blur-sm safe-area-pb"
           >
-            <div className="bg-[var(--bg-surface)] rounded-3xl p-8 w-full max-w-2xl shadow-2xl border border-[var(--bg-panel)] max-h-[90vh] overflow-y-auto">
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="bg-[var(--bg-surface)] rounded-t-3xl p-6 w-full border-t-2 border-[var(--bg-panel)] shadow-2xl max-h-[85vh] overflow-y-auto"
+            >
               <div className="flex items-center justify-between mb-6 sticky top-0 bg-[var(--bg-surface)] pb-4">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">Add Alters to {folderForSelectingAlters.name}</h3>
                 <button onClick={() => setFolderForSelectingAlters(null)} className="p-2 hover:bg-[var(--bg-panel)] rounded-full text-[var(--text-secondary)]">
@@ -637,12 +647,17 @@ const AlterManager: React.FC = () => {
 
         {isAdding && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/50 backdrop-blur-sm safe-area-pb"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/50 backdrop-blur-sm safe-area-pb"
           >
-            <div className="bg-[var(--bg-surface)] rounded-t-3xl md:rounded-3xl p-6 md:p-8 w-full max-w-2xl shadow-2xl border border-[var(--bg-panel)] overflow-y-auto max-h-[85vh] md:max-h-[90vh]">
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="bg-[var(--bg-surface)] rounded-t-3xl p-6 w-full border-t-2 border-[var(--bg-panel)] shadow-2xl overflow-y-auto max-h-[85vh]"
+            >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">{isEditing ? 'Edit Alter' : 'New Alter'}</h3>
                 <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-[var(--bg-panel)] rounded-full text-[var(--text-secondary)]">
@@ -920,18 +935,18 @@ const AlterManager: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 safe-area-pb"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 safe-area-pb"
             onClick={() => setViewAlter(null)}
           >
             <motion.div
               initial={{ y: '100%', opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
-              className="bg-[var(--bg-surface)] rounded-t-3xl md:rounded-3xl w-full md:max-w-md md:w-full border-t-2 md:border border-[var(--bg-panel)] shadow-2xl max-h-[85vh] md:max-h-[90vh] overflow-y-auto"
+              className="bg-[var(--bg-surface)] rounded-t-3xl w-full border-t-2 border-[var(--bg-panel)] shadow-2xl max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Banner */}
-              <div className="h-24 md:h-28 bg-[var(--bg-main)] relative">
+              <div className="h-28 bg-[var(--bg-main)] relative">
                 {viewAlter.bannerUrl && (
                   <img src={viewAlter.bannerUrl} alt="Banner" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 )}
