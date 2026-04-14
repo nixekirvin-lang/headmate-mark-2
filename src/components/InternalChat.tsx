@@ -3,7 +3,7 @@ import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, limit, deleteDoc, doc } from 'firebase/firestore';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Send, MessageSquare, User, Trash2 } from 'lucide-react';
 import { InternalMessage } from '../types';
 import { cn, formatDate } from '../lib/utils';

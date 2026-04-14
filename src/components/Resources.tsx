@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, BookOpen, Heart, Shield, Info, Globe, ChevronDown } from 'lucide-react';
 
 interface Resource {
@@ -346,7 +346,11 @@ const Resources: React.FC = () => {
             >
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-[var(--accent-main)]/10 rounded-2xl">
-                  <region.icon size={24} className="text-[var(--accent-main)]" />
+                  {region.icon ? (
+                    <region.icon size={24} className="text-[var(--accent-main)]" />
+                  ) : (
+                    <Globe size={24} className="text-[var(--accent-main)]" />
+                  )}
                 </div>
                 <h3 className="text-xl font-bold text-[var(--text-primary)]">{region.name}</h3>
                 <span className="text-sm text-[var(--text-muted)]">({region.resources.length} resources)</span>

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useTheme } from './ThemeContext';
-import { LogOut, Users, MessageSquare, Book, Activity, Settings, Home, Info, ShieldAlert, User, Heart, Bell, HelpCircle } from 'lucide-react';
+import { LogOut, Users, MessageSquare, Book, Activity, Settings, Home, Info, ShieldAlert, User, Heart, Bell, HelpCircle, Gamepad2, Menu, X, Palmtree, Palette } from 'lucide-react';
 import Logo from './components/Logo';
 import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
@@ -26,9 +26,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const { user, profile } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) return;
     const q = query(
       collection(db, 'notifications'),
@@ -46,13 +47,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   };
 
   const navItems = [
+    { id: 'profile', label: 'Profile', icon: User },
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     ...(!profile?.isSinglet ? [
       { id: 'alters', label: 'Alters', icon: Users },
       { id: 'switches', label: 'Front History', icon: Activity },
       { id: 'chat', label: 'Internal Chat', icon: MessageSquare },
     ] : []),
+    { id: 'canvas', label: 'Canvas', icon: Palette },
     { id: 'diary', label: 'Diary', icon: Book },
+    { id: 'minigames', label: 'Minigames', icon: Gamepad2 },
+    { id: 'pet', label: 'Pet', icon: Palmtree },
     { id: 'discord', label: 'Discord', icon: Users, href: 'https://discord.gg/nxd4eNG3Rj' },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'friends', label: 'Friends', icon: Heart },
@@ -63,9 +68,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--bg-main)] text-[var(--text-primary)]">
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[var(--bg-surface)] border-b border-[var(--bg-panel)] px-4 py-3 flex items-center justify-between safe-area-pt">
+        <Logo size="small" />
+        <button 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 rounded-xl bg-[var(--bg-panel)] text-[var(--text-primary)]"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-[var(--bg-surface)] border-b md:border-r border-[var(--bg-panel)] flex flex-col">
-        <div className="p-6 flex items-center gap-3">
+      <aside className={cn(
+        "w-full md:w-64 bg-[var(--bg-surface)] md:border-r border-[var(--bg-panel)] flex flex-col fixed md:relative inset-0 z-40 pt-16 md:pt-0 transition-transform duration-300",
+        mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        <div className="p-6 flex items-center gap-3 hidden md:flex">
           <Logo size="small" />
         </div>
 
@@ -74,6 +93,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             <button
               key={item.id}
               onClick={() => {
+                setMobileMenuOpen(false);
                 if (item.href) {
                   window.open(item.href, '_blank');
                 } else {
@@ -88,7 +108,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
               )}
             >
               <item.icon size={20} />
-              {item.label}
+              <span className="truncate">{item.label}</span>
               {item.id === 'notifications' && unreadCount > 0 && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadCount > 99 ? '99+' : unreadCount}
@@ -100,24 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
         <div className="p-4 border-t border-[var(--bg-panel)]">
           {user && (
-            <div className="flex items-center gap-3 px-4 py-2">
-              <button 
-                onClick={() => {
-                  navigate(`/profile/${user.uid}`);
-                }}
-                className="flex-1 flex items-center gap-3 text-left hover:bg-[var(--bg-panel)] p-2 rounded-xl transition-all"
-              >
-                <img
-                  src={profile?.avatarUrl || `https://ui-avatars.com/api/?name=${profile?.displayName || profile?.systemName || 'User'}`}
-                  alt="Avatar"
-                  className="w-10 h-10 rounded-full border border-[var(--bg-panel)] object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate text-[var(--text-primary)]">{profile?.displayName || profile?.systemName || 'User'}</p>
-                  <p className="text-[10px] text-[var(--text-muted)] truncate">@{profile?.username || 'user'}</p>
-                </div>
-              </button>
+            <div className="flex items-center justify-end px-4 py-2">
               <button
                 onClick={handleLogout}
                 className="p-2 text-[var(--text-muted)] hover:text-red-500 transition-colors"
@@ -131,7 +134,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-20 md:pt-6">
         <div className="max-w-5xl mx-auto">
           {children}
         </div>

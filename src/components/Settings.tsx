@@ -4,7 +4,7 @@ import { useTheme } from '../ThemeContext';
 import { useSystem } from '../SystemContext';
 import { db } from '../firebase';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, Shield, User, Download, Trash2, Moon, Sun, Type, AlertTriangle, Save, Check, X, Upload, Camera, LogOut, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ThemeConfig } from '../types';
@@ -32,7 +32,7 @@ const ACCENT_PRESETS = [
 ];
 
 const Settings: React.FC = () => {
-  const { profile, user, logout } = useAuth();
+  const { profile, user, logout, deleteAccount, isDeleting } = useAuth();
   const { theme, updateTheme, saveTheme, deleteTheme, contrastWarning } = useTheme();
   const { alters, switches } = useSystem();
   const [isExporting, setIsExporting] = useState(false);
@@ -45,6 +45,8 @@ const Settings: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Sync state with profile when it changes
   useEffect(() => {
@@ -70,6 +72,14 @@ const Settings: React.FC = () => {
     await saveTheme(newThemeName, theme);
     setNewThemeName('');
     setIsSavingTheme(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError(null);
+    const success = await deleteAccount();
+    if (!success) {
+      setDeleteError('Failed to delete account. Please try again.');
+    }
   };
 
   const handleAvatarUrlSave = async () => {
@@ -629,7 +639,10 @@ const Settings: React.FC = () => {
                   <span>Sign Out</span>
                   <LogOut size={18} />
                 </button>
-                <button className="w-full flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-red-600">
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-red-600"
+                >
                   <span className="font-medium">Delete Account</span>
                   <Trash2 size={18} />
                 </button>
@@ -638,6 +651,88 @@ const Settings: React.FC = () => {
           </section>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowDeleteConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[var(--bg-surface)] rounded-3xl p-8 max-w-md w-full border border-[var(--bg-panel)] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <AlertTriangle className="text-red-600" size={32} />
+                </div>
+                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Delete Account</h3>
+                <p className="text-[var(--text-secondary)] mb-4">
+                  This action is <span className="font-bold text-red-600">irreversible</span>. All your data will be permanently deleted including:
+                </p>
+                <ul className="text-left text-sm text-[var(--text-secondary)] bg-[var(--bg-main)] rounded-2xl p-4 mb-6 space-y-2">
+                  <li className="flex items-center gap-2">
+                    <Trash2 size={14} className="text-red-500" />
+                    Your profile and account
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Trash2 size={14} className="text-red-500" />
+                    All alters ({alters.length} alters)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Trash2 size={14} className="text-red-500" />
+                    All switch logs ({switches.length} switches)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Trash2 size={14} className="text-red-500" />
+                    All diary entries
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Trash2 size={14} className="text-red-500" />
+                    All folders and messages
+                  </li>
+                </ul>
+                {deleteError && (
+                  <p className="text-red-500 text-sm mb-4">{deleteError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 px-4 py-3 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-2xl font-medium hover:bg-[var(--bg-panel)] transition-colors"
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                    className="flex-1 px-4 py-3 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={18} />
+                        Delete Forever
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

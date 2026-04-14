@@ -3,7 +3,7 @@ import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, Check, Shield, ShieldOff, Tag, Download, RefreshCw, Eye, Folder, FolderPlus, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { Alter, AlterFolder } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
@@ -25,6 +25,7 @@ const AlterManager: React.FC = () => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderForSelectingAlters, setFolderForSelectingAlters] = useState<AlterFolder | null>(null);
   const [selectedAltersForFolder, setSelectedAltersForFolder] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<'name' | 'id' | 'created'>('name');
 
   const [folderFormData, setFolderFormData] = useState({
     name: '',
@@ -35,8 +36,10 @@ const AlterManager: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    pronouns: '',
     avatarUrl: '',
     bannerUrl: '',
+    avatarShape: 'square' as 'square' | 'circle' | 'heart' | 'rounded' | 'hexagon',
     tags: '',
     isPrivate: true,
     themeConfig: {
@@ -64,6 +67,20 @@ const AlterManager: React.FC = () => {
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Sort alters based on selected method
+  const sortedAlters = [...alters].sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'id':
+        return a.id.localeCompare(b.id);
+      case 'created':
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      default:
+        return 0;
+    }
+  });
 
   const handleSaveFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,12 +214,17 @@ const AlterManager: React.FC = () => {
     e.preventDefault();
     if (!user) return;
 
-    const alterData = {
+    const alterData: Record<string, any> = {
       ...formData,
       systemId: user.uid,
       tags: formData.tags.split(',').map(t => t.trim()).filter(t => t),
       createdAt: isEditing ? isEditing.createdAt : new Date().toISOString(),
     };
+    
+    // Only save pronouns if not empty
+    if (!formData.pronouns || formData.pronouns.trim() === '') {
+      delete alterData.pronouns;
+    }
 
     try {
       if (isEditing) {
@@ -215,8 +237,10 @@ const AlterManager: React.FC = () => {
       setFormData({ 
         name: '', 
         description: '', 
+        pronouns: '',
         avatarUrl: '', 
         bannerUrl: '', 
+        avatarShape: 'square',
         tags: '', 
         isPrivate: true,
         themeConfig: { background: '#f5f5f5', accent: '#a855f7', text: '#1a1a1a' }
@@ -240,8 +264,10 @@ const AlterManager: React.FC = () => {
     setFormData({
       name: alter.name,
       description: alter.description || '',
+      pronouns: alter.pronouns || '',
       avatarUrl: alter.avatarUrl || '',
       bannerUrl: alter.bannerUrl || '',
+      avatarShape: alter.avatarShape || 'square',
       tags: alter.tags?.join(', ') || '',
       isPrivate: alter.isPrivate ?? true,
       themeConfig: alter.themeConfig || { background: '#f5f5f5', accent: '#a855f7', text: '#1a1a1a' }
@@ -258,29 +284,54 @@ const AlterManager: React.FC = () => {
       let importedAlters: any[] = [];
 
       if (isImporting === 'sp') {
-        const response = await fetch('https://api.apparyllis.com/v1/members', {
-          headers: { 'Authorization': importToken }
-        });
-        if (!response.ok) throw new Error('Failed to fetch from Simply Plural');
-        const data = await response.json();
+        // Call Simply Plural API directly
+        let data;
+        try {
+          const response = await fetch('https://api.apparyllis.com/v1/members', {
+            headers: { 
+              'Authorization': `Bearer ${importToken}`,
+              'Content-Type': 'application/json'
+            },
+            mode: 'cors'
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Simply Plural API error (${response.status}): ${errorText || 'Check your API key'}`);
+          }
+          data = await response.json();
+          if (!Array.isArray(data)) {
+            throw new Error('Invalid response from Simply Plural API');
+          }
+        } catch (err: any) {
+          if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+            throw new Error('CORS error: Simply Plural API does not allow cross-origin requests from browsers. Please try a different import method or contact support.');
+          }
+          throw err;
+        }
         importedAlters = data.map((m: any) => ({
-          name: m.content.name,
-          description: m.content.desc || '',
-          avatarUrl: m.content.avatarUrl || '',
-          bannerUrl: m.content.bannerUrl || '',
+          name: m.name || 'Unnamed Alter',
+          description: m.description || '',
+          avatarUrl: m.avatar_url || '',
+          bannerUrl: m.banner_url || '',
           tags: [],
-          isPrivate: m.content.private ?? true,
+          isPrivate: m.privacy?.name === 'private' || m.privacy?.description === 'private' || false,
           systemId: user.uid,
           createdAt: new Date().toISOString()
         }));
-      } else {
+      } else if (isImporting === 'pk') {
         const response = await fetch('https://api.pluralkit.me/v2/systems/@me/members', {
           headers: { 'Authorization': importToken }
         });
-        if (!response.ok) throw new Error('Failed to fetch from PluralKit');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch from PluralKit: ${response.status} - ${errorText}`);
+        }
         const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid response from PluralKit API');
+        }
         importedAlters = data.map((m: any) => ({
-          name: m.name,
+          name: m.name || 'Unnamed Alter',
           description: m.description || '',
           avatarUrl: m.avatar_url || '',
           bannerUrl: m.banner || '',
@@ -314,37 +365,38 @@ const AlterManager: React.FC = () => {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Alter Management</h2>
-          <p className="text-[var(--text-secondary)]">Document and manage your system's identities.</p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)]">Alter Management</h2>
+          <p className="text-sm md:text-base text-[var(--text-secondary)]">Document and manage your system's identities.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <button
+            onClick={() => { setIsAdding(true); setIsEditing(null); }}
+            className="flex items-center gap-2 px-4 py-2.5 md:py-3 bg-[var(--accent-main)] text-white rounded-xl md:rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)] text-sm md:text-base"
+          >
+            <Plus size={18} />
+            <span className="md:hidden">Add</span>
+            <span className="hidden md:inline">Add Alter</span>
+          </button>
           <button
             onClick={openNewFolderForm}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-sm"
+            className="flex items-center gap-2 px-3 py-2 md:py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-xs md:text-sm"
           >
-            <FolderPlus size={18} />
-            New Folder
+            <FolderPlus size={16} />
+            <span className="hidden md:inline">New Folder</span>
           </button>
           <button
             onClick={() => setIsImporting('sp')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-sm"
+            className="flex items-center gap-2 px-3 py-2 md:py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-xs md:text-sm"
           >
-            <Download size={18} />
-            Import SP
+            <Download size={16} />
+            <span className="hidden md:inline">Import SP</span>
           </button>
           <button
             onClick={() => setIsImporting('pk')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-sm"
+            className="flex items-center gap-2 px-3 py-2 md:py-2 bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--bg-panel)] rounded-xl font-bold hover:bg-[var(--bg-panel)] transition-all text-xs md:text-sm"
           >
-            <Download size={18} />
-            Import PK
-          </button>
-          <button
-            onClick={() => { setIsAdding(true); setIsEditing(null); }}
-            className="flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)]"
-          >
-            <Plus size={20} />
-            Add Alter
+            <Download size={16} />
+            <span className="hidden md:inline">Import PK</span>
           </button>
         </div>
       </div>
@@ -370,8 +422,8 @@ const AlterManager: React.FC = () => {
               <div className="space-y-4">
                 <p className="text-sm text-[var(--text-secondary)]">
                   {isImporting === 'sp' 
-                    ? 'Enter your Simply Plural API Key. You can find this in Settings > API.' 
-                    : 'Enter your PluralKit Token. You can get this by typing "pk;token" in Discord.'}
+                    ? 'Enter your Simply Plural API Key. You can find this in the Simply Plural app: Settings → API → Copy API Key. The token starts with "sp_".' 
+                    : 'Enter your PluralKit Token. In Discord, type "pk;token" in any channel to get your token.'}
                 </p>
                 <input
                   type="password"
@@ -402,9 +454,9 @@ const AlterManager: React.FC = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/50 backdrop-blur-sm safe-area-pb"
           >
-            <div className="bg-[var(--bg-surface)] rounded-3xl p-8 w-full max-w-md shadow-2xl border border-[var(--bg-panel)]">
+            <div className="bg-[var(--bg-surface)] rounded-t-3xl md:rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-[var(--bg-panel)] max-h-[85vh] md:max-h-auto overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">{isEditingFolder ? 'Edit Folder' : 'New Folder'}</h3>
                 <button onClick={() => setIsAddingFolder(false)} className="p-2 hover:bg-[var(--bg-panel)] rounded-full text-[var(--text-secondary)]">
@@ -459,7 +511,42 @@ const AlterManager: React.FC = () => {
                 </div>
 
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={async () => {
+                    if (!user) {
+                      console.error('No user found');
+                      return;
+                    }
+
+                    if (!folderFormData.name.trim()) {
+                      console.error('Folder name is required');
+                      return;
+                    }
+
+                    const folderData = {
+                      ...folderFormData,
+                      systemId: user.uid,
+                      createdAt: isEditingFolder ? isEditingFolder.createdAt : new Date().toISOString(),
+                    };
+
+                    try {
+                      console.log('Saving folder:', folderData);
+                      if (isEditingFolder) {
+                        await updateDoc(doc(db, 'users', user.uid, 'folders', isEditingFolder.id), folderData);
+                        console.log('Folder updated');
+                      } else {
+                        const docRef = await addDoc(collection(db, 'users', user.uid, 'folders'), folderData);
+                        console.log('Folder created with ID:', docRef.id);
+                      }
+                      
+                      console.log('Closing modal and resetting form');
+                      setIsAddingFolder(false);
+                      setIsEditingFolder(null);
+                      setFolderFormData({ name: '', description: '', color: '#a855f7' });
+                    } catch (error) {
+                      console.error('Error saving folder:', error);
+                    }
+                  }}
                   className="w-full py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all"
                 >
                   {isEditingFolder ? 'Update Folder' : 'Create Folder'}
@@ -487,10 +574,10 @@ const AlterManager: React.FC = () => {
               </div>
 
               <div className="space-y-3 mb-6">
-                {alters.length === 0 ? (
+                {sortedAlters.length === 0 ? (
                   <p className="text-center text-[var(--text-muted)] py-8">No alters yet. Create an alter to add to this folder.</p>
                 ) : (
-                  alters.map(alter => (
+                  sortedAlters.map(alter => (
                     <label key={alter.id} className="flex items-center gap-4 p-4 bg-[var(--bg-main)] hover:bg-[var(--bg-panel)] rounded-2xl border border-[var(--bg-panel)] cursor-pointer transition-all">
                       <input
                         type="checkbox"
@@ -553,18 +640,18 @@ const AlterManager: React.FC = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/50 backdrop-blur-sm safe-area-pb"
           >
-            <div className="bg-[var(--bg-surface)] rounded-3xl p-8 w-full max-w-2xl shadow-2xl border border-[var(--bg-panel)] overflow-y-auto max-h-[90vh]">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-[var(--text-primary)]">{isEditing ? 'Edit Alter' : 'New Alter'}</h3>
+            <div className="bg-[var(--bg-surface)] rounded-t-3xl md:rounded-3xl p-6 md:p-8 w-full max-w-2xl shadow-2xl border border-[var(--bg-panel)] overflow-y-auto max-h-[85vh] md:max-h-[90vh]">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">{isEditing ? 'Edit Alter' : 'New Alter'}</h3>
                 <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-[var(--bg-panel)] rounded-full text-[var(--text-secondary)]">
                   <X size={24} />
                 </button>
               </div>
 
               <form onSubmit={handleSave} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">Name</label>
                     <input
@@ -596,6 +683,16 @@ const AlterManager: React.FC = () => {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">Pronouns</label>
+                  <input
+                    value={formData.pronouns}
+                    onChange={e => setFormData({ ...formData, pronouns: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none"
+                    placeholder="e.g. they/them, she/her"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">Avatar URL</label>
@@ -614,6 +711,26 @@ const AlterManager: React.FC = () => {
                       className="w-full px-4 py-3 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none"
                       placeholder="https://..."
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">Avatar Shape</label>
+                  <div className="flex gap-2">
+                    {(['square', 'circle', 'rounded', 'heart', 'hexagon'] as const).map((shape) => (
+                      <button
+                        key={shape}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, avatarShape: shape })}
+                        className={`flex-1 py-3 rounded-xl border-2 font-medium capitalize transition-all ${
+                          formData.avatarShape === shape 
+                            ? 'border-[var(--accent-main)] bg-[var(--accent-main)]/10 text-[var(--accent-main)]' 
+                            : 'border-[var(--bg-panel)] text-[var(--text-secondary)] hover:border-[var(--accent-main)]/50'
+                        }`}
+                      >
+                        {shape}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -765,15 +882,27 @@ const AlterManager: React.FC = () => {
 
       {/* All Alters Section */}
       <div>
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
             <Users size={20} />
             All Alters ({alters.length})
           </h3>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-[var(--text-secondary)]">Sort by:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'id' | 'created')}
+              className="px-3 py-2 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-[var(--accent-main)] outline-none"
+            >
+              <option value="name">Alphabetical</option>
+              <option value="id">Alter ID</option>
+              <option value="created">Creation Date</option>
+            </select>
+          </div>
         </div>
-        {alters.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {alters.map((alter) => (
+        {sortedAlters.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {sortedAlters.map((alter) => (
               <AlterCard key={alter.id} alter={alter} onView={setViewAlter} onEdit={openEdit} onDelete={handleDelete} />
             ))}
           </div>
@@ -791,74 +920,100 @@ const AlterManager: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 safe-area-pb"
             onClick={() => setViewAlter(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[var(--bg-surface)] rounded-3xl p-8 max-w-md w-full border border-[var(--bg-panel)] shadow-2xl"
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              className="bg-[var(--bg-surface)] rounded-t-3xl md:rounded-3xl w-full md:max-w-md md:w-full border-t-2 md:border border-[var(--bg-panel)] shadow-2xl max-h-[85vh] md:max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-[var(--text-primary)]">Alter Profile</h3>
-                <button
-                  onClick={() => setViewAlter(null)}
-                  className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-colors"
-                >
-                  <X size={20} />
-                </button>
+              {/* Banner */}
+              <div className="h-24 md:h-28 bg-[var(--bg-main)] relative">
+                {viewAlter.bannerUrl && (
+                  <img src={viewAlter.bannerUrl} alt="Banner" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                )}
               </div>
 
-              <div className="text-center">
-                <img
-                  src={viewAlter.avatarUrl || `https://ui-avatars.com/api/?name=${viewAlter.name}`}
-                  alt={viewAlter.name}
-                  className="w-24 h-24 rounded-3xl object-cover mx-auto mb-4 border-4"
-                  style={{ borderColor: viewAlter.themeConfig?.accent || 'var(--accent-main)' }}
-                  referrerPolicy="no-referrer"
-                />
-                <h4 className="text-2xl font-bold mb-2" style={{ color: 'var(--alter-text-color)' }}>{viewAlter.name}</h4>
-                {viewAlter.description && (
-                  <p className="mb-4" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{viewAlter.description}</p>
-                )}
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  {viewAlter.isPrivate ? (
-                    <span className="flex items-center gap-1 text-sm text-[var(--text-muted)]">
-                      <Shield size={14} />
-                      Private
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-sm text-green-500">
-                      <ShieldOff size={14} />
-                      Shared
-                    </span>
-                  )}
-                </div>
-                {viewAlter.tags && viewAlter.tags.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2 mb-4">
-                    {viewAlter.tags.map((tag, index) => (
-                      <span key={index} className="px-3 py-1 bg-[var(--accent-main)] text-white text-xs rounded-full">
-                        {tag}
-                      </span>
-                    ))}
+              {/* Content box */}
+              <div className="mx-4 -mt-14 relative z-10">
+                <div className="bg-[var(--bg-surface)] rounded-2xl p-4 border border-[var(--bg-panel)] shadow-lg">
+                  {/* Close button */}
+                  <div className="flex justify-end mb-2">
+                    <button
+                      onClick={() => setViewAlter(null)}
+                      className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
                   </div>
-                )}
-                {viewAlter.themeConfig && (
-                  <div className="mb-4">
-                    <p className="text-xs text-[var(--text-muted)] mb-2">Custom Theme</p>
-                    <div className="flex justify-center gap-2">
-                      <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: viewAlter.themeConfig.background }}></div>
-                      <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: viewAlter.themeConfig.accent }}></div>
-                      <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: viewAlter.themeConfig.text }}></div>
+
+                  {/* Avatar and name */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <img
+                      src={viewAlter.avatarUrl || `https://ui-avatars.com/api/?name=${viewAlter.name}`}
+                      alt={viewAlter.name}
+                      className={`w-16 h-16 border-2 border-[var(--bg-surface)] object-cover shadow-md ${(() => {
+                        switch (viewAlter.avatarShape) {
+                          case 'circle': return 'rounded-full';
+                          case 'heart': return 'rounded-none clip-heart';
+                          case 'rounded': return 'rounded-2xl';
+                          case 'hexagon': return 'rounded-none clip-hexagon';
+                          default: return 'rounded-xl';
+                        }
+                      })()}`}
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xl font-bold text-[var(--text-primary)]">{viewAlter.name}</h4>
+                        {viewAlter.isPrivate ? <Shield size={14} className="text-[var(--text-muted)]" /> : <ShieldOff size={14} className="text-green-500" />}
+                      </div>
+                      {viewAlter.pronouns && (
+                        <p className="text-sm text-[var(--text-muted)]">{viewAlter.pronouns}</p>
+                      )}
                     </div>
                   </div>
-                )}
-                <p className="text-xs text-[var(--text-muted)]">
-                  Created {new Date(viewAlter.createdAt).toLocaleDateString()}
-                </p>
+
+                  {/* Description */}
+                  <div className="mb-4">
+                    <p className="text-sm text-[var(--text-secondary)]">{viewAlter.description || 'No description provided.'}</p>
+                  </div>
+
+                  {/* Tags */}
+                  {viewAlter.tags && viewAlter.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {viewAlter.tags.map((tag, index) => (
+                        <span key={index} className="text-xs font-bold uppercase tracking-wider px-3 py-1 bg-[var(--bg-main)] text-[var(--text-muted)] rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Custom Theme */}
+                  {viewAlter.themeConfig && (
+                    <div className="mb-4 p-3 bg-[var(--bg-main)] rounded-xl">
+                      <p className="text-xs font-bold text-[var(--text-muted)] mb-2">Custom Theme</p>
+                      <div className="flex gap-2">
+                        <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: viewAlter.themeConfig.background }}></div>
+                        <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: viewAlter.themeConfig.accent }}></div>
+                        <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: viewAlter.themeConfig.text }}></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Created date */}
+                  <p className="text-xs text-[var(--text-muted)] text-center pt-2 border-t border-[var(--bg-panel)]">
+                    Created {new Date(viewAlter.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
+
+              {/* Bottom padding */}
+              <div className="h-4" />
             </motion.div>
           </motion.div>
         )}
@@ -874,50 +1029,99 @@ const AlterCard: React.FC<{
   onEdit: (alter: Alter) => void;
   onDelete: (id: string) => void;
 }> = ({ alter, onView, onEdit, onDelete }) => {
+  // Avatar shape class mapping
+  const getAvatarShapeClass = (shape?: string) => {
+    switch (shape) {
+      case 'circle': return 'rounded-full';
+      case 'heart': return 'rounded-none clip-heart';
+      case 'rounded': return 'rounded-2xl';
+      case 'hexagon': return 'rounded-none clip-hexagon';
+      default: return 'rounded-xl';
+    }
+  };
+
   return (
     <motion.div
       layout
       className="group relative bg-[var(--bg-surface)] rounded-3xl overflow-hidden border border-[var(--bg-panel)] shadow-sm hover:shadow-xl transition-all"
     >
-      <div className="h-24 bg-[var(--bg-main)] relative">
+      {/* Banner area */}
+      <div className="h-20 sm:h-24 bg-[var(--bg-main)] relative">
         {alter.bannerUrl && (
           <img src={alter.bannerUrl} alt="Banner" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         )}
-        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onView(alter)} className="p-2 bg-[var(--bg-surface)]/90 rounded-full shadow-sm hover:text-blue-500 text-[var(--text-primary)]">
-            <Eye size={16} />
-          </button>
-          <button onClick={() => onEdit(alter)} className="p-2 bg-[var(--bg-surface)]/90 rounded-full shadow-sm hover:text-[var(--accent-main)] text-[var(--text-primary)]">
-            <Edit2 size={16} />
-          </button>
-          <button onClick={() => onDelete(alter.id)} className="p-2 bg-[var(--bg-surface)]/90 rounded-full shadow-sm hover:text-red-500 text-[var(--text-primary)]">
-            <Trash2 size={16} />
-          </button>
+      </div>
+
+      {/* Content box - overlays banner with solid background for readability */}
+      <div className="mx-4 -mt-12 relative z-10">
+        <div className="bg-[var(--bg-surface)] rounded-2xl p-4 border border-[var(--bg-panel)] shadow-lg">
+          {/* Avatar and name row */}
+          <div className="flex items-start gap-3 mb-3">
+            <img
+              src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
+              alt={alter.name}
+              className={`w-14 h-14 sm:w-16 sm:h-16 border-2 border-[var(--bg-surface)] object-cover shadow-md ${getAvatarShapeClass(alter.avatarShape)}`}
+              referrerPolicy="no-referrer"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-base sm:text-lg font-bold text-[var(--text-primary)] truncate">{alter.name}</h4>
+                {alter.isPrivate ? <Shield size={12} className="text-[var(--text-muted)] flex-shrink-0" /> : <ShieldOff size={12} className="text-green-500 flex-shrink-0" />}
+              </div>
+              {alter.pronouns && (
+                <p className="text-xs text-[var(--text-muted)]">{alter.pronouns}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Description text area */}
+          <p className="text-sm text-[var(--text-secondary)] line-clamp-2 mb-3 min-h-[2.5rem]">
+            {alter.description || 'No description provided.'}
+          </p>
+
+          {/* Tags */}
+          {alter.tags && alter.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {alter.tags.slice(0, 4).map(tag => (
+                <span key={tag} className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-muted)] rounded-full">
+                  {tag}
+                </span>
+              ))}
+              {alter.tags.length > 4 && (
+                <span className="text-[9px] font-bold text-[var(--text-muted)]">+{alter.tags.length - 4}</span>
+              )}
+            </div>
+          )}
+
+          {/* Action buttons - always visible, clear row */}
+          <div className="flex gap-2 pt-2 border-t border-[var(--bg-panel)]">
+            <button 
+              onClick={() => onView(alter)} 
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[var(--bg-main)] hover:bg-blue-500/10 hover:text-blue-500 text-[var(--text-secondary)] rounded-xl font-medium text-sm transition-all active:scale-95"
+            >
+              <Eye size={14} />
+              <span>View</span>
+            </button>
+            <button 
+              onClick={() => onEdit(alter)} 
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[var(--bg-main)] hover:bg-[var(--accent-main)]/10 hover:text-[var(--accent-main)] text-[var(--text-secondary)] rounded-xl font-medium text-sm transition-all active:scale-95"
+            >
+              <Edit2 size={14} />
+              <span>Edit</span>
+            </button>
+            <button 
+              onClick={() => onDelete(alter.id)} 
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[var(--bg-main)] hover:bg-red-500/10 hover:text-red-500 text-[var(--text-secondary)] rounded-xl font-medium text-sm transition-all active:scale-95"
+            >
+              <Trash2 size={14} />
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div className="p-6 pt-0 -mt-10 relative">
-        <img
-          src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
-          alt={alter.name}
-          className="w-20 h-20 rounded-2xl border-4 border-[var(--bg-surface)] object-cover shadow-md mb-4"
-          referrerPolicy="no-referrer"
-        />
-        <div className="flex items-center gap-2 mb-1">
-          <h4 className="text-xl font-bold" style={{ color: 'var(--alter-text-color)' }}>{alter.name}</h4>
-          {alter.isPrivate ? <Shield size={14} className="text-[var(--text-muted)]" /> : <ShieldOff size={14} className="text-green-500" />}
-        </div>
-        <p className="text-sm line-clamp-2 mb-4 min-h-[2.5rem]" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>
-          {alter.description || 'No description provided.'}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {alter.tags?.map(tag => (
-            <span key={tag} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-[var(--bg-panel)] text-[var(--text-secondary)] rounded-full">
-              <Tag size={10} />
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
+
+      {/* Bottom spacing */}
+      <div className="h-4" />
     </motion.div>
   );
 };

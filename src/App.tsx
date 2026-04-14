@@ -25,6 +25,9 @@ const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const FriendsList = lazy(() => import('./components/FriendsList'));
 const Notifications = lazy(() => import('./components/Notifications'));
 const About = lazy(() => import('./components/About'));
+const Minigames = lazy(() => import('./components/Minigames'));
+const VirtualPet = lazy(() => import('./components/VirtualPet'));
+const Canvas = lazy(() => import('./components/Canvas'));
 
 const LoadingFallback: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-950">
@@ -67,10 +70,10 @@ const AppContent: React.FC = () => {
 
   React.useEffect(() => {
     // Listen for navigation events from components
-    const handleSetTab = (e: any) => {
+    const handleSetTab = (e: CustomEvent) => {
       setActiveTab(e.detail);
     };
-    const handleSetViewProfile = (e: any) => {
+    const handleSetViewProfile = (e: CustomEvent) => {
       setViewProfileId(e.detail);
       setActiveTab('profile');
     };
@@ -115,6 +118,7 @@ const AppContent: React.FC = () => {
       case 'diary': return <Diary />;
       case 'switches': return isSinglet ? <Dashboard /> : <SwitchTracker />;
       case 'chat': return isSinglet ? <Dashboard /> : <InternalChat />;
+      case 'canvas': return <Canvas />;
       case 'discord': 
         // Discord opens in new tab via Layout, stay on dashboard
         return <Dashboard />;
@@ -122,6 +126,8 @@ const AppContent: React.FC = () => {
       case 'friends': return <FriendsList onViewProfile={handleViewProfile} />;
       case 'profile': return <ProfilePage userId={viewProfileId || user.uid} onAuthorClick={handleViewProfile} />;
       case 'resources': return <Resources />;
+      case 'minigames': return <Minigames />;
+      case 'pet': return <VirtualPet />;
       case 'settings': return <Settings />;
       case 'about': return <About />;
       default: return <Dashboard />;

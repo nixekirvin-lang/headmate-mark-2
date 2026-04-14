@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Heart, MessageCircle, UserPlus, Check, Trash2, X } from 'lucide-react';
 import { Notification } from '../types';
 import { formatDate, cn } from '../lib/utils';

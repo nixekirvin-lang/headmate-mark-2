@@ -1,84 +1,239 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, addDoc, getDoc } from 'firebase/firestore';
-import { motion } from 'motion/react';
-import { Activity, Plus, Check, Clock, AlertCircle, Edit2, Save, X, BarChart3, List } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { cn, formatDate, formatDuration, formatTimeRange } from '../lib/utils';
+import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { motion } from 'framer-motion';
+import { Activity, Plus, Check, Clock, BarChart3, Trash2, UserMinus, Timer, Edit2, Save, X, Trash, AlertTriangle } from 'lucide-react';
+import { cn, formatDate, formatDetailedDuration } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 const SwitchTracker: React.FC = () => {
-  const { alters, switches, currentFronters } = useSystem();
-  const { user } = useAuth();
-  const [selectedAlters, setSelectedAlters] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
-  const [triggers, setTriggers] = useState('');
-  const [frontStatuses, setFrontStatuses] = useState<Record<string, string>>({});
-  const [isLogging, setIsLogging] = useState(false);
-  const [editingStatusFor, setEditingStatusFor] = useState<{ switchId: string; alterId: string } | null>(null);
+  const { alters, switches, frontHistory, currentFronters, mainFront } = useSystem();
+  const { user, profile } = useAuth();
+  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'analytics'>('current');
+  
+  // Custom status editing state
+  const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null);
   const [statusInput, setStatusInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'history' | 'analytics'>('history');
+  
+  // Current time for live timer updates
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Update current time every second for live timers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleLogSwitch = async () => {
-    if (!user || selectedAlters.length === 0) return;
-
+  // Add an alter to front
+  const handleAddToFront = async (alterId: string) => {
+    console.log('handleAddToFront called', { user: !!user, profile: !!profile, alterId });
+    if (!user || !profile) {
+      console.log('Missing user or profile');
+      return;
+    }
+    
+    // Check if already fronting
+    if (profile.currentFrontIds?.includes(alterId)) {
+      console.log('Already fronting', alterId);
+      return;
+    }
+    
+    const timestamp = new Date().toISOString();
+    
     try {
-      await addDoc(collection(db, 'users', user.uid, 'switches'), {
-        systemId: user.uid,
-        alterIds: selectedAlters,
-        timestamp: new Date().toISOString(),
-        notes,
-        triggers: triggers.split(',').map(t => t.trim()).filter(t => t),
-        frontStatuses: Object.keys(frontStatuses).length > 0 ? frontStatuses : undefined,
+      console.log('Updating profile with newFrontIds', [...(profile.currentFrontIds || []), alterId]);
+      // Update profile's currentFrontIds
+      const newFrontIds = [...(profile.currentFrontIds || []), alterId];
+      await updateDoc(doc(db, 'users', user.uid), {
+        currentFrontIds: newFrontIds,
       });
-      setSelectedAlters([]);
-      setNotes('');
-      setTriggers('');
-      setFrontStatuses({});
-      setIsLogging(false);
+      console.log('Profile updated, creating history entry');
+      
+      // Create history entry (append-only, never modify)
+      await addDoc(collection(db, 'users', user.uid, 'frontHistory'), {
+        userId: user.uid,
+        alterId,
+        action: 'added',
+        timestamp,
+      });
+      console.log('History entry created successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/switches`);
+      console.error('Error in handleAddToFront:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
-  const handleUpdateStatus = async (switchId: string, alterId: string) => {
-    if (!user || !statusInput.trim()) return;
+  // Remove an alter from front
+  const handleRemoveFromFront = async (alterId: string) => {
+    if (!user || !profile) return;
+    
+    const removeTimestamp = new Date().toISOString();
+    
     try {
-      const switchDoc = await getDoc(doc(db, 'users', user.uid, 'switches', switchId));
-      const currentStatuses = switchDoc.data()?.frontStatuses || {};
-      await updateDoc(doc(db, 'users', user.uid, 'switches', switchId), {
-        frontStatuses: { ...currentStatuses, [alterId]: statusInput },
+      // Update profile's currentFrontIds - remove this alter
+      const newFrontIds = (profile.currentFrontIds || []).filter(id => id !== alterId);
+      
+      // Also remove their status
+      const newStatuses = { ...profile.frontStatuses };
+      delete newStatuses[alterId];
+      
+      // Prepare update object - also clear mainFrontId if this was the main front
+      const updateData: Record<string, any> = {
+        currentFrontIds: newFrontIds,
+        frontStatuses: newStatuses,
+      };
+      
+      // If removing the main front, clear mainFrontId
+      if (profile.mainFrontId === alterId) {
+        updateData.mainFrontId = null;
+      }
+      
+      await updateDoc(doc(db, 'users', user.uid), updateData);
+      
+      // Find the most recent "added" entry for this alter from our local state
+      const alterHistory = frontHistory
+        .filter(h => h.alterId === alterId)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Find the most recent "added" entry
+      let addTimestamp: string | undefined;
+      for (const entry of alterHistory) {
+        if (entry.action === 'added') {
+          addTimestamp = entry.timestamp;
+          break;
+        }
+      }
+      
+      // Also check switches as fallback
+      if (!addTimestamp) {
+        for (const sw of switches) {
+          if (sw.alterIds?.includes(alterId) && !sw.alterEndTimestamps?.[alterId]) {
+            addTimestamp = sw.alterTimestamps?.[alterId] || sw.timestamp;
+            break;
+          }
+        }
+      }
+      
+      // Create history entry for removal (append-only, never modify)
+      await addDoc(collection(db, 'users', user.uid, 'frontHistory'), {
+        userId: user.uid,
+        alterId,
+        action: 'removed',
+        timestamp: removeTimestamp,
+        previousTimestamp: addTimestamp,
       });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  // Set an alter as main front
+  const handleSetMainFront = async (alterId: string) => {
+    if (!user || !profile) return;
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        mainFrontId: alterId,
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  // Update custom front status
+  const handleUpdateStatus = async (alterId: string) => {
+    if (!user || !profile) return;
+    
+    try {
+      const newStatuses = {
+        ...profile.frontStatuses,
+        [alterId]: statusInput,
+      };
+      
+      // If status is empty, remove it
+      if (!statusInput.trim()) {
+        delete newStatuses[alterId];
+      }
+      
+      await updateDoc(doc(db, 'users', user.uid), {
+        frontStatuses: newStatuses,
+      });
+      
       setEditingStatusFor(null);
       setStatusInput('');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/switches/${switchId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
-  const startEditingStatus = (switchId: string, alterId: string, currentStatus: string) => {
-    setEditingStatusFor({ switchId, alterId });
-    setStatusInput(currentStatus);
+  // Start editing status
+  const startEditingStatus = (alterId: string, currentStatus: string) => {
+    setEditingStatusFor(alterId);
+    setStatusInput(currentStatus || '');
   };
 
-  const updateFrontStatus = (alterId: string, status: string) => {
-    setFrontStatuses(prev => ({ ...prev, [alterId]: status }));
+  // Cancel editing status
+  const cancelEditingStatus = () => {
+    setEditingStatusFor(null);
+    setStatusInput('');
   };
 
-  const toggleAlter = (id: string) => {
-    setSelectedAlters(prev => 
-      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
-    );
+  // Clear all fronting
+  const handleClearFront = async () => {
+    if (!user || !profile) return;
+    
+    const now = new Date().toISOString();
+    
+    try {
+      const currentFrontIds = profile.currentFrontIds || [];
+      
+      // Create history entries for each current fronter being removed
+      const historyUpdates = currentFrontIds.map(async (alterId) => {
+        const alterHistory = frontHistory
+          .filter(h => h.alterId === alterId)
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        
+        let addTimestamp: string | undefined;
+        for (const entry of alterHistory) {
+          if (entry.action === 'added') {
+            addTimestamp = entry.timestamp;
+            break;
+          }
+        }
+        
+        return addDoc(collection(db, 'users', user.uid, 'frontHistory'), {
+          userId: user.uid,
+          alterId,
+          action: 'removed',
+          timestamp: now,
+          previousTimestamp: addTimestamp,
+        });
+      });
+      
+      await Promise.all(historyUpdates);
+      
+      // Clear fronting state and statuses
+      await updateDoc(doc(db, 'users', user.uid), {
+        currentFrontIds: [],
+        mainFrontId: null,
+        frontStatuses: {},
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
-  // Calculate analytics
+  // Calculate analytics from frontHistory
   const analytics = useMemo(() => {
-    if (switches.length === 0) return null;
+    const addedEntries = frontHistory.filter(entry => entry.action === 'added');
+    
+    if (addedEntries.length === 0) return null;
 
-    // Sort switches by timestamp (newest first)
-    const sortedSwitches = [...switches].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const sortedEntries = [...addedEntries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
     const alterStats: Record<string, {
       alterId: string;
@@ -88,45 +243,41 @@ const SwitchTracker: React.FC = () => {
       totalMinutes: number;
     }> = {};
 
-    sortedSwitches.forEach((log, index) => {
-      if (!log.alterIds || !Array.isArray(log.alterIds)) return;
+    sortedEntries.forEach((entry, index) => {
+      const alterId = entry.alterId;
+      const alter = alters.find(a => a.id === alterId);
+      if (!alter) return;
       
-      // Calculate duration until next switch
-      const currentTime = new Date(log.timestamp).getTime();
-      const nextSwitch = sortedSwitches[index + 1];
-      const nextTime = nextSwitch ? new Date(nextSwitch.timestamp).getTime() : Date.now();
-      const durationMs = nextTime - currentTime;
-      const durationMinutes = Math.floor(durationMs / 60000);
+      // Calculate duration: time until next 'added' entry
+      let durationMinutes = 60; // Default 1 hour
+      const nextEntry = sortedEntries[index + 1];
+      if (nextEntry) {
+        const currentTimeVal = new Date(entry.timestamp).getTime();
+        const nextTimeVal = new Date(nextEntry.timestamp).getTime();
+        durationMinutes = Math.max(1, Math.floor((nextTimeVal - currentTimeVal) / 60000));
+      }
 
-      log.alterIds.forEach(alterId => {
-        const alter = alters.find(a => a.id === alterId);
-        if (!alter) return;
-
-        if (!alterStats[alterId]) {
-          alterStats[alterId] = {
-            alterId,
-            alterName: alter.name,
-            alterAvatar: alter.avatarUrl,
-            frontCount: 0,
-            totalMinutes: 0
-          };
-        }
-        alterStats[alterId].frontCount += 1;
-        alterStats[alterId].totalMinutes += durationMinutes;
-      });
+      if (!alterStats[alterId]) {
+        alterStats[alterId] = {
+          alterId,
+          alterName: alter.name,
+          alterAvatar: alter.avatarUrl,
+          frontCount: 0,
+          totalMinutes: 0
+        };
+      }
+      alterStats[alterId].frontCount += 1;
+      alterStats[alterId].totalMinutes += durationMinutes;
     });
 
     const statsArray = Object.values(alterStats).sort((a, b) => b.frontCount - a.frontCount);
     
-    // Calculate system totals
-    const totalSwitches = switches.length;
-    const firstSwitch = sortedSwitches[sortedSwitches.length - 1];
-    const lastSwitch = sortedSwitches[0];
-    const systemUptimeMs = new Date(lastSwitch.timestamp).getTime() - new Date(firstSwitch.timestamp).getTime();
-    const systemDays = Math.floor(systemUptimeMs / (1000 * 60 * 60 * 24));
-    
-    // Average fronts per day
-    const avgFrontsPerDay = systemDays > 0 ? (totalSwitches / systemDays).toFixed(1) : totalSwitches;
+    const totalSwitches = addedEntries.length;
+    const firstEntry = sortedEntries[0];
+    const lastEntry = sortedEntries[sortedEntries.length - 1];
+    const systemUptimeMs = new Date(lastEntry.timestamp).getTime() - new Date(firstEntry.timestamp).getTime();
+    const systemDays = Math.max(1, Math.floor(systemUptimeMs / (1000 * 60 * 60 * 24)));
+    const avgFrontsPerDay = (totalSwitches / systemDays).toFixed(1);
 
     return {
       alterStats: statsArray,
@@ -136,16 +287,109 @@ const SwitchTracker: React.FC = () => {
       totalAlters: alters.length,
       activeAlters: statsArray.length
     };
-  }, [switches, alters]);
+  }, [frontHistory, alters]);
+
+  // Format duration as readable string with days, hrs, mins, secs
+  const formatDurationString = (startTime: string | undefined) => {
+    if (!startTime) return 'Unknown';
+    const duration = formatDetailedDuration(startTime, currentTime.toISOString());
+    const parts = [];
+    if (duration.days > 0) parts.push(`${duration.days}d`);
+    if (duration.hours > 0) parts.push(`${duration.hours}h`);
+    if (duration.minutes > 0) parts.push(`${duration.minutes}m`);
+    parts.push(`${duration.seconds}s`);
+    return parts.join(' ');
+  };
+
+  // Delete a front history entry
+  const handleDeleteHistoryEntry = async (historyId: string) => {
+    if (!user) return;
+    
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'frontHistory', historyId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/frontHistory/${historyId}`);
+    }
+  };
+
+  // Get the timestamp when an alter was added to front
+  const getAddTimestamp = (alterId: string): string | undefined => {
+    const alterHistory = frontHistory
+      .filter(h => h.alterId === alterId)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    for (const entry of alterHistory) {
+      if (entry.action === 'added') {
+        return entry.timestamp;
+      }
+    }
+    
+    for (const sw of switches) {
+      if (sw.alterIds?.includes(alterId) && !sw.alterEndTimestamps?.[alterId]) {
+        return sw.alterTimestamps?.[alterId] || sw.timestamp;
+      }
+    }
+    
+    return undefined;
+  };
+
+  // Check if an alter is a "orphaned" fronter - in currentFrontIds but no "added" entry in history
+  const isOrphanedFronting = (alterId: string): boolean => {
+    if (!profile?.currentFrontIds?.includes(alterId)) return false;
+    
+    // Check if there's an "added" entry for this alter
+    const hasAddedEntry = frontHistory.some(h => h.alterId === alterId && h.action === 'added');
+    return !hasAddedEntry;
+  };
+
+  // Fix orphaned fronters - add missing "added" history entries for stale currentFrontIds
+  const handleFixOrphanedFronters = async () => {
+    if (!user || !profile?.currentFrontIds) return;
+    
+    const orphanedIds = profile.currentFrontIds.filter(id => isOrphanedFronting(id));
+    if (orphanedIds.length === 0) return;
+    
+    const timestamp = new Date().toISOString();
+    
+    try {
+      // Create "added" history entries for orphaned fronters
+      const updates = orphanedIds.map(async (alterId) => {
+        await addDoc(collection(db, 'users', user.uid, 'frontHistory'), {
+          userId: user.uid,
+          alterId,
+          action: 'added',
+          timestamp,
+          isRecovery: true, // Mark as recovery entry
+        });
+      });
+      
+      await Promise.all(updates);
+      console.log('Fixed orphaned fronters:', orphanedIds);
+    } catch (error) {
+      console.error('Error fixing orphaned fronters:', error);
+      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/frontHistory`);
+    }
+  };
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Front History</h2>
-          <p className="text-[var(--text-secondary)]">Log and analyze your system's fronting patterns.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Front Tracker</h2>
+          <p className="text-[var(--text-secondary)]">Track and analyze your system's fronting patterns.</p>
         </div>
         <div className="flex gap-2 p-1 bg-[var(--bg-main)] rounded-xl border border-[var(--bg-panel)]">
+          <button
+            onClick={() => setActiveTab('current')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              activeTab === 'current'
+                ? 'bg-[var(--accent-main)] text-white'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <Activity size={18} />
+            Current
+          </button>
           <button
             onClick={() => setActiveTab('history')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
@@ -154,7 +398,7 @@ const SwitchTracker: React.FC = () => {
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <List size={18} />
+            <Clock size={18} />
             History
           </button>
           <button
@@ -174,7 +418,6 @@ const SwitchTracker: React.FC = () => {
       {/* Analytics Tab */}
       {activeTab === 'analytics' && analytics && (
         <div className="space-y-8">
-          {/* Overview Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-[var(--bg-surface)] rounded-3xl p-6 border border-[var(--bg-panel)] shadow-sm">
               <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Total Switches</p>
@@ -194,7 +437,6 @@ const SwitchTracker: React.FC = () => {
             </div>
           </div>
 
-          {/* Per-Alter Stats */}
           <div className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm">
             <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6">Alter Fronting Statistics</h3>
             <div className="space-y-4">
@@ -246,26 +488,45 @@ const SwitchTracker: React.FC = () => {
         </div>
       )}
 
-      {/* History Tab */}
-      {activeTab === 'history' && (
+      {/* Current Tab */}
+      {activeTab === 'current' && (
       <>
       {/* Currently Fronting Section */}
-
-      {/* Currently Fronting Section */}
       <div className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm">
-        <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] mb-6">
-          <Activity className="text-[var(--accent-main)]" />
-          Currently Fronting
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
+            <Activity className="text-[var(--accent-main)]" />
+            Currently Fronting
+          </h3>
+          {currentFronters.length > 0 && (
+            <button
+              onClick={handleClearFront}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            >
+              <Trash2 size={16} />
+              Clear All
+            </button>
+          )}
+        </div>
+        
         {currentFronters.length > 0 ? (
           <div className="space-y-4">
             {currentFronters.map((alter) => {
-              const currentSwitch = switches.find(s => s.alterIds?.includes(alter.id));
-              const alterStatus = currentSwitch?.frontStatuses?.[alter.id] || '';
-              const isEditing = editingStatusFor?.switchId === currentSwitch?.id && editingStatusFor?.alterId === alter.id;
+              const addTimestamp = getAddTimestamp(alter.id);
+              const isMainFront = mainFront?.id === alter.id;
+              const alterStatus = profile?.frontStatuses?.[alter.id] || '';
+              const isEditing = editingStatusFor === alter.id;
+              const isOrphaned = isOrphanedFronting(alter.id);
               
               return (
-                <div key={alter.id} className="flex flex-col md:flex-row md:items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border-2" style={{ borderColor: alter.themeConfig?.accent || 'var(--accent-main)' }}>
+                <div 
+                  key={alter.id} 
+                  className={cn(
+                    "flex flex-col md:flex-row md:items-center gap-4 p-4 bg-[var(--bg-main)] rounded-2xl border-2",
+                    isOrphaned ? "border-yellow-500" : ""
+                  )}
+                  style={!isOrphaned ? { borderColor: alter.themeConfig?.accent || 'var(--accent-main)' } : undefined}
+                >
                   <img
                     src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
                     alt={alter.name}
@@ -273,55 +534,98 @@ const SwitchTracker: React.FC = () => {
                     referrerPolicy="no-referrer"
                   />
                   <div className="flex-1">
-                    <p className="text-lg font-bold text-[var(--text-primary)]">{alter.name}</p>
-                    {currentSwitch && (
-                      <p className="text-sm text-[var(--text-muted)]">Fronting since: {formatDate(currentSwitch.timestamp)}</p>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={statusInput}
-                          onChange={(e) => setStatusInput(e.target.value)}
-                          placeholder="Set your front status..."
-                          className="flex-1 px-3 py-2 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
-                          autoFocus
-                        />
-                        <button
-                          onClick={() => handleUpdateStatus(currentSwitch!.id, alter.id)}
-                          className="p-2 bg-[var(--accent-main)] text-white rounded-xl"
-                        >
-                          <Save size={16} />
-                        </button>
-                        <button
-                          onClick={() => setEditingStatusFor(null)}
-                          className="p-2 bg-[var(--bg-panel)] text-[var(--text-primary)] rounded-xl"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : alterStatus ? (
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full text-sm">
-                          {alterStatus}
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-bold text-[var(--text-primary)]">{alter.name}</p>
+                      {isMainFront && (
+                        <span className="px-2 py-0.5 text-xs font-bold bg-[var(--accent-main)] text-white rounded-full">
+                          Main
                         </span>
+                      )}
+                      {isOrphaned && (
+                        <span className="px-2 py-0.5 text-xs font-bold bg-yellow-500 text-white rounded-full">
+                          Orphaned
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Live Timer */}
+                    <div className="flex items-center gap-2 text-sm text-[var(--text-muted)] mt-1">
+                      <Timer size={14} className={isOrphaned ? "text-yellow-500" : "text-[var(--accent-main)]"} />
+                      {isOrphaned ? (
+                        <span className="text-yellow-600">Unknown duration (missing history)</span>
+                      ) : (
+                        <span>Fronting for: {formatDurationString(addTimestamp)}</span>
+                      )}
+                    </div>
+                    
+                    {/* Custom Status Display/Input */}
+                    <div className="mt-2">
+                      {isEditing ? (
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={statusInput}
+                            onChange={(e) => setStatusInput(e.target.value)}
+                            placeholder="Set your front status..."
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--bg-panel)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleUpdateStatus(alter.id)}
+                            className="p-1.5 bg-[var(--accent-main)] text-white rounded-lg"
+                          >
+                            <Save size={14} />
+                          </button>
+                          <button
+                            onClick={cancelEditingStatus}
+                            className="p-1.5 bg-[var(--bg-panel)] text-[var(--text-primary)] rounded-lg"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : alterStatus ? (
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full text-sm">
+                            {alterStatus}
+                          </span>
+                          <button
+                            onClick={() => startEditingStatus(alter.id, alterStatus)}
+                            className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-main)]"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                        </div>
+                      ) : (
                         <button
-                          onClick={() => startEditingStatus(currentSwitch!.id, alter.id, alterStatus)}
-                          className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-main)]"
+                          onClick={() => startEditingStatus(alter.id, '')}
+                          className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-main)]"
                         >
-                          <Edit2 size={14} />
+                          + Add status
                         </button>
-                      </div>
-                    ) : (
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    {!isMainFront && (
                       <button
-                        onClick={() => startEditingStatus(currentSwitch?.id || '', alter.id, '')}
-                        className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-main)]"
+                        onClick={() => handleSetMainFront(alter.id)}
+                        className="flex items-center gap-1 px-3 py-2 text-sm bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:text-[var(--accent-main)] rounded-xl transition-colors"
+                        title="Set as main front"
                       >
-                        + Add status
+                        <Check size={16} />
+                        Main
                       </button>
                     )}
+                    <button
+                      onClick={() => handleRemoveFromFront(alter.id)}
+                      className="flex items-center gap-1 px-3 py-2 text-sm bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-colors"
+                      title="Remove from front"
+                    >
+                      <UserMinus size={16} />
+                      Remove
+                    </button>
                   </div>
                 </div>
               );
@@ -330,50 +634,55 @@ const SwitchTracker: React.FC = () => {
         ) : (
           <div className="text-center py-8 text-[var(--text-muted)]">
             <p>No one is currently fronting</p>
-            <button
-              onClick={() => setIsLogging(true)}
-              className="mt-4 flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)] mx-auto"
-            >
-              <Plus size={20} />
-              Log New Switch
-            </button>
+          </div>
+        )}
+        
+        {/* Orphaned fronters warning */}
+        {currentFronters.length > 0 && currentFronters.some(a => isOrphanedFronting(a.id)) && (
+          <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl border border-yellow-300 dark:border-yellow-700">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-yellow-600 mt-0.5" size={20} />
+              <div>
+                <p className="font-bold text-yellow-800 dark:text-yellow-200">
+                  {currentFronters.filter(a => isOrphanedFronting(a.id)).length} orphan alter(s) detected
+                </p>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                  These alters are marked as fronting but have no history entry. This can happen after data recovery. 
+                  Click the "Fix" button below or remove them to resolve this issue.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Log New Switch Button (when not logging) */}
-      {!isLogging && currentFronters.length > 0 && (
-        <button
-          onClick={() => setIsLogging(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-[var(--accent-main)] text-white rounded-2xl font-bold hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent-glow)]"
-        >
-          <Plus size={20} />
-          Log New Switch
-        </button>
-      )}
-
-      {isLogging && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-xl"
-        >
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-bold text-[var(--text-primary)]">Who is fronting now?</h3>
-            <button onClick={() => setIsLogging(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Cancel</button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-            {alters.map((alter) => (
+      {/* Add to Front Section */}
+      <div className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm">
+        <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] mb-6">
+          <Plus className="text-[var(--accent-main)]" />
+          Add Alter to Front
+        </h3>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {alters.map((alter) => {
+            const isFronting = currentFronters.some(f => f.id === alter.id);
+            const isOrphaned = isOrphanedFronting(alter.id);
+            const isDisabled = isFronting && !isOrphaned;
+            
+            return (
               <button
                 key={alter.id}
-                onClick={() => toggleAlter(alter.id)}
+                onClick={() => isOrphaned ? handleFixOrphanedFronters() : (!isFronting && handleAddToFront(alter.id))}
+                disabled={isDisabled}
                 className={cn(
                   "flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all",
-                  selectedAlters.includes(alter.id)
-                    ? "border-[var(--accent-main)] bg-[var(--accent-main)]/10 text-[var(--accent-main)]"
-                    : "border-transparent bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--bg-panel)]"
+                  isOrphaned
+                    ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 hover:border-yellow-600 cursor-pointer"
+                    : isFronting
+                    ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 cursor-default"
+                    : "border-transparent bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--bg-panel)] hover:border-[var(--accent-main)]"
                 )}
+                title={isOrphaned ? "Missing history entry - click to fix" : (isFronting ? "Currently fronting" : "Add to front")}
               >
                 <img
                   src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
@@ -382,134 +691,101 @@ const SwitchTracker: React.FC = () => {
                   referrerPolicy="no-referrer"
                 />
                 <span className="text-xs font-bold truncate w-full text-center">{alter.name}</span>
-                {selectedAlters.includes(alter.id) && <Check size={12} className="text-[var(--accent-main)]" />}
+                {isOrphaned && <span className="text-[10px] text-yellow-600">Fix needed</span>}
+                {isFronting && !isOrphaned && <Check size={12} className="text-green-500" />}
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+      </div>
+      </>)}
 
-          <div className="space-y-4 mb-8">
-            {selectedAlters.length > 0 && (
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Front Status (optional)</label>
-                {selectedAlters.map(alterId => {
-                  const alter = alters.find(a => a.id === alterId);
-                  return (
-                    <div key={alterId} className="flex items-center gap-3">
-                      <img
-                        src={alter?.avatarUrl || `https://ui-avatars.com/api/?name=${alter?.name || '?'}`}
-                        alt={alter?.name}
-                        className="w-8 h-8 rounded-lg object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      <span className="text-sm font-medium text-[var(--text-primary)] w-24 truncate">{alter?.name}</span>
-                      <input
-                        value={frontStatuses[alterId] || ''}
-                        onChange={e => updateFrontStatus(alterId, e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none text-sm"
-                        placeholder="Set status for this alter..."
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Notes</label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none min-h-[100px]"
-                placeholder="How are you feeling? Any context for the switch?"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Triggers (optional)</label>
-              <input
-                value={triggers}
-                onChange={e => setTriggers(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--bg-panel)] bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-main)] outline-none"
-                placeholder="e.g. Stress, Music, Specific Person"
-              />
-            </div>
-          </div>
-
-          <button
-            disabled={selectedAlters.length === 0}
-            onClick={handleLogSwitch}
-            className="w-full py-4 bg-[var(--accent-main)] text-white rounded-2xl font-bold text-lg hover:bg-[var(--accent-hover)] transition-all shadow-xl shadow-[var(--accent-glow)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Confirm Switch
-          </button>
-        </motion.div>
-      )}
-
+      {/* History Tab */}
+      {activeTab === 'history' && (
       <div className="bg-[var(--bg-surface)] rounded-3xl border border-[var(--bg-panel)] overflow-hidden shadow-sm">
         <div className="p-6 border-b border-[var(--bg-panel)]">
           <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
             <Clock className="text-[var(--accent-main)]" />
-            Front History
+            Front History Log
           </h3>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            Each add/remove action is logged as a separate entry (append-only)
+          </p>
         </div>
         <div className="divide-y divide-[var(--bg-panel)]">
-          {switches.map((log) => (
-            <div key={log.id} className="p-6 hover:bg-[var(--bg-main)] transition-colors">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {frontHistory.length > 0 ? frontHistory.map((entry) => {
+            const alter = alters.find(a => a.id === entry.alterId);
+            const isAdded = entry.action === 'added';
+            
+            let duration = null;
+            if (!isAdded && entry.previousTimestamp) {
+              duration = formatDetailedDuration(entry.previousTimestamp, entry.timestamp);
+            }
+            
+            return (
+              <div key={entry.id} className="p-6 hover:bg-[var(--bg-main)] transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className="flex -space-x-3">
-                    {log.alterIds.map((id) => {
-                      const alter = alters.find(a => a.id === id);
-                      return (
-                        <img
-                          key={id}
-                          src={alter?.avatarUrl || `https://ui-avatars.com/api/?name=${alter?.name || '?'}`}
-                          alt={alter?.name}
-                          className="w-12 h-12 rounded-2xl border-2 border-[var(--bg-surface)] object-cover shadow-sm"
-                          style={{ borderColor: alter?.themeConfig?.accent || 'var(--accent-main)' }}
-                          referrerPolicy="no-referrer"
-                        />
-                      );
-                    })}
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    isAdded ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600"
+                  )}>
+                    {isAdded ? <Plus size={20} /> : <UserMinus size={20} />}
                   </div>
-                  <div>
-                    <p className="text-lg font-bold text-[var(--text-primary)]">
-                      {log.alterIds.map(id => alters.find(a => a.id === id)?.name).join(' & ')}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-bold text-[var(--text-primary)]">
+                        {alter?.name || 'Unknown Alter'}
+                      </p>
+                      <span className={cn(
+                        "px-2 py-0.5 text-xs font-bold rounded-full",
+                        isAdded ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600"
+                      )}>
+                        {isAdded ? 'Added to Front' : 'Removed from Front'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[var(--text-muted)]">
+                      {formatDate(entry.timestamp)}
                     </p>
-                    <p className="text-sm text-[var(--text-muted)]">{formatTimeRange(log.timestamp, switches[switches.indexOf(log) + 1]?.timestamp || null)}</p>
-                    <p className="text-xs text-[var(--accent-main)]">Duration: {formatDuration(log.timestamp, switches[switches.indexOf(log) + 1]?.timestamp || null)}</p>
+                    {!isAdded && duration && (
+                      <p className="text-sm text-[var(--accent-main)] mt-1">
+                        Fronted for: {duration.days > 0 ? `${duration.days}d ` : ''}{duration.hours > 0 ? `${duration.hours}h ` : ''}{duration.minutes > 0 ? `${duration.minutes}m ` : ''}{duration.seconds}s
+                      </p>
+                    )}
                   </div>
-                </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                  {log.triggers && log.triggers.length > 0 && (
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {log.triggers.map(t => (
-                        <span key={t} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full">
-                          <AlertCircle size={10} />
-                          {t}
-                        </span>
-                      ))}
+                  {alter ? (
+                    <img
+                      src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`}
+                      alt={alter.name}
+                      className="w-10 h-10 rounded-xl object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-panel)] flex items-center justify-center text-[var(--text-muted)]">
+                      ?
                     </div>
                   )}
                 </div>
-              </div>
-              {log.notes && (
-                <div className="mt-4 p-4 bg-[var(--bg-main)] rounded-2xl text-sm text-[var(--text-secondary)] italic border border-[var(--bg-panel)]">
-                  "{log.notes}"
+                <div className="mt-4">
+                  <button
+                    onClick={() => handleDeleteHistoryEntry(entry.id)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Delete this entry"
+                  >
+                    <Trash size={14} />
+                    Delete
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
-          {switches.length === 0 && (
-            <div className="p-12 text-center text-[var(--text-muted)] italic">
-              No switch history found. Start logging to see patterns!
+              </div>
+            );
+          }) : (
+            <div className="p-12 text-center text-[var(--text-muted)]">
+              <Clock size={48} className="mx-auto mb-4 opacity-50" />
+              <p>No front history yet.</p>
+              <p className="text-sm mt-2">Add alters to front to start tracking.</p>
             </div>
           )}
         </div>
       </div>
-      </>
       )}
     </div>
   );

@@ -4,10 +4,10 @@ import { useSystem } from '../SystemContext';
 import { db, storage } from '../firebase';
 import { doc, getDoc, collection, query, where, orderBy, limit, onSnapshot, updateDoc, arrayUnion, arrayRemove, addDoc, deleteDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { motion, AnimatePresence } from 'motion/react';
-import { UserPlus, UserMinus, Shield, ShieldOff, Tag, AlertTriangle, Heart, MessageSquare, Plus, X, Edit2, Trash2, Upload, Camera, Image as ImageIcon, AlertTriangle as WarningIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { UserPlus, UserMinus, Shield, ShieldOff, Tag, AlertTriangle, Heart, MessageSquare, Plus, X, Edit2, Trash2, Upload, Camera, Image as ImageIcon } from 'lucide-react';
 import { UserProfile, Post, Alter, SwitchLog } from '../types';
-import { formatDate, cn } from '../lib/utils';
+import { formatDate, formatJoinDate, cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 import PostCard from './PostCard';
 
@@ -28,6 +28,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [friendshipStatus, setFriendshipStatus] = useState<'none' | 'pending' | 'accepted'>('none');
+
+  // Compute current fronters from profile's currentFrontIds
+  useEffect(() => {
+    if (!profile?.currentFrontIds || !alters.length) {
+      setCurrentFronters([]);
+      return;
+    }
+    const fronters = profile.currentFrontIds
+      .map(id => alters.find(a => a.id === id))
+      .filter((a): a is Alter => !!a);
+    setCurrentFronters(fronters);
+  }, [profile?.currentFrontIds, alters]);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
@@ -163,50 +175,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
 
     return unsubPosts;
   }, [userId]);
-
-  useEffect(() => {
-    if (!userId || !currentUser || !currentProfile) return;
-    // Fetch current fronters - only if owner or friend
-    let unsubSwitches = () => {};
-    const isOwner = currentUser.uid === userId;
-    // Check if current user is in the viewed user's friend list (they added you)
-    const isFriend = profile?.friendIds?.includes(currentUser.uid);
-    // Also check if you have them in your friend list (mutual or you added them)
-    const isFriendOfViewed = currentProfile.friendIds?.includes(userId);
-    const canViewFronters = isFriend || isFriendOfViewed;
-    
-    if (isOwner || canViewFronters) {
-      const switchQ = query(
-        collection(db, 'users', userId, 'switches'),
-        orderBy('timestamp', 'desc'),
-        limit(1)
-      );
-      unsubSwitches = onSnapshot(switchQ, async (snap) => {
-        try {
-          if (!snap.empty) {
-            const lastSwitch = snap.docs[0].data() as SwitchLog;
-            // Safe check for alterIds - skip if missing or empty
-            if (!lastSwitch.alterIds || lastSwitch.alterIds.length === 0) {
-              setCurrentFronters([]);
-              return;
-            }
-            const alterPromises = lastSwitch.alterIds.map(id => getDoc(doc(db, 'users', userId, 'alters', id)));
-            const alterSnaps = await Promise.all(alterPromises);
-            setCurrentFronters(alterSnaps.map(s => ({ id: s.id, ...s.data() } as Alter)));
-          } else {
-            setCurrentFronters([]);
-          }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${userId}/switches`);
-        }
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `users/${userId}/switches`);
-      });
-    } else {
-      setCurrentFronters([]);
-    }
-    return unsubSwitches;
-  }, [userId, currentUser, currentProfile]);
 
   // Fetch all system members (alters) for non-singlet profiles
   useEffect(() => {
@@ -410,12 +378,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
     }
   };
 
-  const startEdit = (post: Post) => {
-    // For now, redirect to social feed to edit
-    window.dispatchEvent(new CustomEvent('setTab', { detail: 'social' }));
-    // We could pass the post to be edited via state or event
-  };
-
   const openEditProfile = () => {
     if (profile) {
       setEditDisplayName(profile.displayName || '');
@@ -432,7 +394,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
     setUploadError(null);
     setUploading(true);
     try {
-      const updates: any = {
+      const updates: Partial<UserProfile> = {
         displayName: editDisplayName,
         bio: editBio
       };
@@ -450,9 +412,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
       await updateDoc(doc(db, 'users', currentUser.uid), updates);
       
       setShowEditProfile(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving profile:', error);
-      setUploadError(error.message || 'Failed to save profile. Please try again.');
+      setUploadError(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -500,11 +462,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
           <div className="mb-2">
             <h2 className="text-3xl font-bold text-white tracking-tight">{profile.displayName || profile.systemName}</h2>
             <p className="text-white/80 font-medium">@{profile.username || 'user'}</p>
-            {/* Only show current fronters to owner or friends (either mutual or viewed user added you) */}
-            {!profile?.isSinglet && currentFronters.length > 0 && (currentUser?.uid === userId || currentProfile?.friendIds?.includes(userId) || profile?.friendIds?.includes(currentUser?.uid)) && (
-              <p className="text-[var(--accent-main)] font-bold text-sm mt-1">
-                Currently Fronting: {currentFronters.map(f => f.name).join(', ')}
-              </p>
+            {profile.createdAt && (
+              <p className="text-white/60 text-sm mt-1">Joined {formatJoinDate(profile.createdAt)}</p>
             )}
           </div>
         </div>
@@ -809,7 +768,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Trigger Warnings (comma separated)</label>
                   <div className="flex items-center gap-2">
-                    <WarningIcon size={20} className="text-[var(--text-muted)]" />
+                    <AlertTriangle size={20} className="text-[var(--text-muted)]" />
                     <input
                       value={postTw}
                       onChange={e => setPostTw(e.target.value)}
@@ -919,6 +878,37 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
             </div>
           </section>
 
+          {/* Currently Fronting section */}
+          {(profile?.isSinglet === false || profile?.isSinglet === undefined) && currentFronters.length > 0 && (currentUser?.uid === userId || currentProfile?.friendIds?.includes(userId) || profile?.friendIds?.includes(currentUser?.uid)) && (
+            <section className="bg-[var(--bg-surface)] p-6 rounded-3xl border border-[var(--accent-main)] shadow-lg">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--accent-main)] mb-4">Currently Fronting</h3>
+              <div className="flex flex-wrap gap-2">
+                {currentFronters.map((front) => (
+                  <div key={front.id} className="flex items-center gap-2 bg-[var(--accent-main)] bg-opacity-20 px-4 py-2 rounded-full border border-[var(--accent-main)]">
+                    {front.avatarUrl ? (
+                      <img src={front.avatarUrl} alt={front.name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-[var(--accent-main)] flex items-center justify-center text-white text-xs font-bold">
+                        {front.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-[var(--text-primary)] font-semibold">{front.name}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Show message when no fronters but system exists */}
+          {currentUser?.uid === userId && (profile?.isSinglet === false || profile?.isSinglet === undefined) && currentFronters.length === 0 && (
+            <section className="bg-[var(--bg-surface)] p-6 rounded-3xl border border-[var(--bg-panel)] shadow-sm">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Currently Fronting</h3>
+              <p className="text-sm text-[var(--text-secondary)]">
+                No active front recorded. Log a switch to show who's fronting.
+              </p>
+            </section>
+          )}
+
           {/* Friends List */}
           {friends.length > 0 && (
             <section className="bg-[var(--bg-surface)] p-8 rounded-3xl border border-[var(--bg-panel)] shadow-sm space-y-4">
@@ -952,6 +942,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
                     <img src={alter.avatarUrl || `https://ui-avatars.com/api/?name=${alter.name}`} className="w-10 h-10 rounded-xl object-cover" referrerPolicy="no-referrer" />
                     <div>
                       <p className="font-bold text-sm" style={{ color: 'var(--alter-text-color)' }}>{alter.name}</p>
+                      {alter.pronouns && (
+                        <p className="text-[10px] text-[var(--accent-main)]">{alter.pronouns}</p>
+                      )}
                       {alter.description && (
                         <p className="text-[10px] line-clamp-1" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{alter.description}</p>
                       )}
@@ -976,7 +969,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack, onAuthorClick
                 post={post}
                 onLike={() => handleLike(post)}
                 onAuthorClick={onAuthorClick}
-                onEdit={() => startEdit(post)}
                 onDelete={() => handleDelete(post.id)}
               />
             ))

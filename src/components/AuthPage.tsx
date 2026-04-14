@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
 import { auth, db } from '../firebase';
@@ -10,7 +10,7 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
-type AuthMode = 'login' | 'register' | 'reset-step-1' | 'reset-step-2';
+type AuthMode = 'login' | 'register' | 'reset-password';
 
 const AuthPage: React.FC = () => {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -71,28 +71,10 @@ const AuthPage: React.FC = () => {
           friendIds: [],
           createdAt: new Date().toISOString(),
         });
-      } else if (mode === 'reset-step-1') {
-        setMode('reset-step-2');
-      } else if (mode === 'reset-step-2') {
-        if (password !== confirmPassword) {
-          throw new Error('Passwords do not match');
-        }
-        
-        const response = await fetch('/api/auth/reset-password-insecure', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, newPassword: password }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to reset password');
-        }
-
-        setSuccessMessage('Password reset successful! You can now log in.');
+      } else if (mode === 'reset-password') {
+        // Password reset is now handled via email to support
         setMode('login');
-        setPassword('');
-        setConfirmPassword('');
+        setSuccessMessage('Please email headm8support@gmail.com with your username and display name from the email address you used to create your account.');
       }
     } catch (err: any) {
       setError(err.message);
@@ -136,13 +118,12 @@ const AuthPage: React.FC = () => {
             <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
               {mode === 'login' && 'Welcome Back'}
               {mode === 'register' && 'Create System'}
-              {(mode === 'reset-step-1' || mode === 'reset-step-2') && 'Reset Password'}
+              {mode === 'reset-password' && 'Reset Password'}
             </h2>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
               {mode === 'login' && 'Sign in to manage your system.'}
               {mode === 'register' && 'Start your journey with HeadM8.'}
-              {mode === 'reset-step-1' && 'Enter your email to continue.'}
-              {mode === 'reset-step-2' && 'Enter your new password below.'}
+              {mode === 'reset-password' && 'Need help accessing your account?'}
             </p>
           </div>
 
@@ -161,7 +142,7 @@ const AuthPage: React.FC = () => {
           )}
 
           <form onSubmit={handleAuth} className="space-y-4">
-            {(mode === 'login' || mode === 'register' || mode === 'reset-step-1') && (
+            {(mode === 'login' || mode === 'register') && (
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] ml-1">Email Address</label>
                 <div className="relative">
@@ -175,6 +156,22 @@ const AuthPage: React.FC = () => {
                     placeholder="you@example.com"
                   />
                 </div>
+              </div>
+            )}
+
+            {mode === 'reset-password' && (
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  To reset your password, please email <strong>headm8support@gmail.com</strong> with the following information:
+                </p>
+                <ul className="text-sm text-[var(--text-secondary)] space-y-2 pl-4">
+                  <li>• Your username</li>
+                  <li>• Your display name</li>
+                  <li>• The email address you used to create your account</li>
+                </ul>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Our team will help you regain access to your account.
+                </p>
               </div>
             )}
 
@@ -222,10 +219,10 @@ const AuthPage: React.FC = () => {
               </div>
             )}
 
-            {(mode === 'login' || mode === 'register' || mode === 'reset-step-2') && (
+            {(mode === 'login' || mode === 'register') && (
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] ml-1">
-                  {mode === 'reset-step-2' ? 'New Password' : 'Password'}
+                  Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
@@ -241,7 +238,7 @@ const AuthPage: React.FC = () => {
               </div>
             )}
 
-            {(mode === 'register' || mode === 'reset-step-2') && (
+            {mode === 'register' && (
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] ml-1">Confirm Password</label>
                 <div className="relative">
@@ -262,7 +259,7 @@ const AuthPage: React.FC = () => {
               <div className="text-right">
                 <button
                   type="button"
-                  onClick={() => { setMode('reset-step-1'); setError(null); }}
+                  onClick={() => { setMode('reset-password'); setError(null); }}
                   className="text-xs font-bold text-[var(--accent-main)] hover:text-[var(--accent-hover)] transition-colors"
                 >
                   Forgot Password?
@@ -281,8 +278,7 @@ const AuthPage: React.FC = () => {
                 <>
                   {mode === 'login' && 'Sign In'}
                   {mode === 'register' && 'Create Account'}
-                  {mode === 'reset-step-1' && 'Next'}
-                  {mode === 'reset-step-2' && 'Save New Password'}
+                  {mode === 'reset-password' && 'Back to Login'}
                   <ArrowRight size={20} />
                 </>
               )}

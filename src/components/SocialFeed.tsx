@@ -4,7 +4,7 @@ import { useSystem } from '../SystemContext';
 import { db, storage } from '../firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, limit, where, doc, updateDoc, increment, getDoc, deleteDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Bookmark, Plus, Shield, ShieldOff, AlertTriangle, Image as ImageIcon, X, Edit2, Trash2, Send } from 'lucide-react';
 import { Post, UserProfile, Alter, Comment } from '../types';
 import { cn, formatDate } from '../lib/utils';

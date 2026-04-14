@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, increment } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Bookmark, AlertTriangle, Edit2, Trash2, Send } from 'lucide-react';
 import { Post, UserProfile, Alter, Comment } from '../types';
 import { cn, formatDate } from '../lib/utils';
@@ -12,7 +12,7 @@ interface PostCardProps {
   post: Post;
   onLike: () => void;
   onAuthorClick?: (uid: string) => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   onDelete: () => void;
 }
 

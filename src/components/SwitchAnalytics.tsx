@@ -4,13 +4,17 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { BarChart3 } from 'lucide-react';
 
 const SwitchAnalytics: React.FC = () => {
-  const { alters, switches } = useSystem();
+  const { alters, frontHistory } = useSystem();
 
-  const data = alters.map(alter => ({
-    name: alter.name,
-    // Safe check for alterIds existence before filtering
-    count: switches.filter(s => s.alterIds && Array.isArray(s.alterIds) && s.alterIds.includes(alter.id)).length
-  })).sort((a, b) => b.count - a.count).slice(0, 5);
+  const addedEntries = frontHistory.filter(entry => entry.action === 'added');
+  
+  const data = alters.map(alter => {
+    const alterEntries = addedEntries.filter(e => e.alterId === alter.id);
+    return {
+      name: alter.name,
+      count: alterEntries.length
+    };
+  }).sort((a, b) => b.count - a.count).slice(0, 5);
 
   const hasData = data.some(d => d.count > 0);
 

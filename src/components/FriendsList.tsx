@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc, addDoc, getDocs, or, and } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, UserMinus, Search, User, Check, X, Users, MessageSquare } from 'lucide-react';
 import { UserProfile, Friendship } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
@@ -137,26 +137,27 @@ const FriendsList: React.FC<FriendsListProps> = ({ onViewProfile, onMessageUser 
   const handleAccept = async (request: Friendship) => {
     if (!user || !profile) return;
     try {
-      // Get current friend counts
+      // Get current friend data
       const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
       const targetUserDoc = await getDoc(doc(db, 'users', request.user1Id));
       const currentUserData = currentUserDoc.data() as UserProfile;
       const targetUserData = targetUserDoc.data() as UserProfile;
       
-      const currentFriendsCount = (currentUserData?.friendIds?.length || 0);
-      const targetFriendsCount = (targetUserData?.friendIds?.length || 0);
+      // Calculate new counts (ensure they reflect the actual array length + 1 for the new friend)
+      const currentFriendsCount = (currentUserData?.friendIds?.length || 0) + 1;
+      const targetFriendsCount = (targetUserData?.friendIds?.length || 0) + 1;
 
       // Update friendship status to accepted
       await updateDoc(doc(db, 'friendships', request.id), { status: 'accepted' });
       
-      // Add each other to friendIds
+      // Add each other to friendIds and update friendsCount
       await updateDoc(doc(db, 'users', user.uid), { 
         friendIds: arrayUnion(request.user1Id),
-        friendsCount: currentFriendsCount + 1
+        friendsCount: currentFriendsCount
       });
       await updateDoc(doc(db, 'users', request.user1Id), { 
         friendIds: arrayUnion(user.uid),
-        friendsCount: targetFriendsCount + 1
+        friendsCount: targetFriendsCount
       });
 
       // Send notification
@@ -165,7 +166,7 @@ const FriendsList: React.FC<FriendsListProps> = ({ onViewProfile, onMessageUser 
         senderId: user.uid,
         senderName: profile.displayName || profile.systemName || 'User',
         senderAvatar: profile.avatarUrl || null,
-        type: 'friend_request',
+        type: 'friend_accepted',
         content: 'accepted your friend request',
         timestamp: new Date().toISOString(),
         isRead: false
@@ -242,6 +243,7 @@ const FriendsList: React.FC<FriendsListProps> = ({ onViewProfile, onMessageUser 
       const currentUserData = currentUserDoc.data() as UserProfile;
       const targetUserData = targetUserDoc.data() as UserProfile;
       
+      // Calculate new counts (ensure they reflect the actual array length - 1 for the removed friend)
       const currentFriendsCount = Math.max(0, (currentUserData?.friendIds?.length || 1) - 1);
       const targetFriendsCount = Math.max(0, (targetUserData?.friendIds?.length || 1) - 1);
 

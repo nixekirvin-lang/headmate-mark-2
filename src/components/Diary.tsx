@@ -4,7 +4,7 @@ import { useAuth } from '../AuthContext';
 import { db, storage } from '../firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, where, deleteDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Book, Plus, Search, Calendar, Filter, Image as ImageIcon, Music, Smile, User, X, Trash2 } from 'lucide-react';
 import { DiaryEntry } from '../types';
 import { cn, formatDate } from '../lib/utils';

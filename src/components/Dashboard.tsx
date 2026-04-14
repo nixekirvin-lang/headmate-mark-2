@@ -1,33 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { useSystem } from '../SystemContext';
 import { useAuth } from '../AuthContext';
-import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Users, Clock, Plus, BarChart3, Book, X, User, Heart } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
-import { Alter, UserProfile } from '../types';
+import { Alter, UserProfile, Post } from '../types';
 import { db } from '../firebase';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 
 // Random welcome messages
 const welcomeMessages = [
-  "Welcome back! Hope you're having a great day.",
-  "Good to see you again! Take care of yourself.",
-  "Welcome back! Your system is here for you.",
-  "Hello! Remember to stay hydrated and take breaks.",
-  "Welcome back! Every day is a fresh start.",
-  "Hey there! Your alters appreciate you checking in.",
-  "Welcome! Self-care is important - don't forget it.",
-  "Good to have you back! Your system journey matters.",
-  "Welcome back! Today is another opportunity to grow.",
-  "Hello! Be kind to yourself today.",
+  "what's cookin' good lookin'!",
+  "Remember! There's no WiFi in jail :(",
+  "*Picks up crown* U dropped this queen.",
+  "HeadM8! Just like those other apps kinda!",
+  "No ur so hot babe, pls don't go bald",
+  "Everything will be ok, Frogs love you",
+  "Remember to go all out! Don't just take a slice, take the whole cake. don't let anyone else have any- hey- HEY! THATS MINE!! STOP RUNNING!! THIEF!! CAKE THIEF!!!",
+  "you is smart, You is kind, You is important",
+  "I big, I baev, I boobooful 🥺",
+  "Lemme see what you have! A KNIFE!! NO!!!! (omg why does he have a knife-)",
+  "It says gullible on the ceiling",
+  "james nonds having a stronk, call the bondulance",
+  "U LOOK AMAZING BABE!!!!!!!!!",
+  "Omg slay… Slay! SLAY YOUR ENEMIES-",
+  "Ooh piece of candy! Ooh piece of candy! Ooh piece of candy!",
+  "rabbit or habit?",
+  "Hey Jay! You forgot your flashlight!",
+  "Alex kralies worst crime was being a film student.",
+  "I'm thinking Miku Miku ooeeoo",
+  "pissing all by yourself handsome?",
+  "abolish twink masky",
+  "Free Palestine",
+  "Abolish ICE",
+  "Fuck Donald trump",
+  "So who're you fighting now?? Gandalf!?",
+  "road work ahead!? uh- yeah. i sure hope it does!",
+  "hurricane katrina?? More like hurricane tortillaaa!",
+  "elon musk is a stinky diaper baby",
+  "YES! IT'S OK TO PUNCH NAZIS!!!",
+  "ACAB means ACAB",
+  "a good nazi is a dead nazi!",
+  "ABAB, assigned baby at birth.",
 ];
 
 const Dashboard: React.FC = () => {
-  const { currentFronters, switches, alters } = useSystem();
+  const { currentFronters, switches, alters, loading, frontHistory } = useSystem();
   const { profile, user } = useAuth();
+  const navigate = useNavigate();
   const [selectedAlter, setSelectedAlter] = useState<Alter | null>(null);
   const [friends, setFriends] = useState<UserProfile[]>([]);
+  const [communityPosts, setCommunityPosts] = useState<Post[]>([]);
+  const [communityProfiles, setCommunityProfiles] = useState<Record<string, UserProfile>>({});
+  const [communityAlters, setCommunityAlters] = useState<Record<string, Alter[]>>({});
   const [welcomeMessage, setWelcomeMessage] = useState('');
   
   // Set random welcome message on mount
@@ -62,6 +89,74 @@ const Dashboard: React.FC = () => {
     
     fetchFriends();
   }, [profile?.friendIds]);
+
+  // Fetch community posts (from all users)
+  useEffect(() => {
+    const fetchCommunityPosts = async () => {
+      try {
+        // Get all posts from all users (similar to SocialFeed)
+        const postsQuery = query(
+          collection(db, 'posts'),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+        
+        const snapshot = await getDocs(postsQuery);
+        const posts = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Post));
+        
+        // Take top 10
+        const sortedPosts = posts.slice(0, 10);
+        
+        setCommunityPosts(sortedPosts);
+        
+        console.log('[Dashboard] Fetched posts:', sortedPosts.length);
+        
+        // Fetch author profiles for all posts
+        const authorIds = [...new Set(sortedPosts.map(p => p.systemId))];
+        console.log('[Dashboard] Author IDs:', authorIds);
+        
+        const profilesMap: Record<string, UserProfile> = {};
+        const altersMap: Record<string, Alter[]> = {};
+        
+        await Promise.all(
+          authorIds.map(async (authorId) => {
+            try {
+              const snap = await getDoc(doc(db, 'users', authorId));
+              if (snap.exists()) {
+                const profileData = snap.data();
+                console.log('[Dashboard] Profile for', authorId, ':', profileData);
+                profilesMap[authorId] = { uid: snap.id, ...profileData } as UserProfile;
+              } else {
+                console.log('[Dashboard] No profile found for', authorId);
+              }
+            } catch (e) {
+              console.warn('[Dashboard] Error fetching profile:', authorId, e);
+            }
+            
+            // Also fetch alters for this system
+            try {
+              const altersQuery = query(collection(db, 'alters'), where('systemId', '==', authorId));
+              const altersSnap = await getDocs(altersQuery);
+              altersMap[authorId] = altersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Alter));
+            } catch (e) {
+              console.warn('[Dashboard] Error fetching alters:', authorId, e);
+              altersMap[authorId] = [];
+            }
+          })
+        );
+        
+        setCommunityProfiles(profilesMap);
+        setCommunityAlters(altersMap);
+      } catch (error) {
+        console.warn('Error fetching community posts:', error);
+      }
+    };
+    
+    fetchCommunityPosts();
+  }, []);
 
   if (profile?.isSinglet) {
     return (
@@ -195,7 +290,16 @@ const Dashboard: React.FC = () => {
                 </div>
               ))
             ) : (
-              <p className="text-[var(--text-muted)] italic">No one is currently logged as fronting.</p>
+              <div className="text-center py-4">
+                <p className="text-[var(--text-muted)] italic mb-4">No one is currently logged as fronting.</p>
+                <button 
+                  onClick={() => navigate('/switch')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent-main)] text-white rounded-xl font-bold text-sm hover:bg-[var(--accent-hover)] transition-all cursor-pointer"
+                >
+                  <Activity size={16} />
+                  Log a switch
+                </button>
+              </div>
             )}
           </div>
         </motion.div>
@@ -218,42 +322,60 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="p-4 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)]">
               <p className="text-xs text-[var(--text-muted)] uppercase font-bold tracking-wider">Switches</p>
-              <p className="text-2xl font-bold text-[var(--text-primary)]">{switches.length}</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{frontHistory.filter(h => h.action === 'added').length}</p>
             </div>
           </div>
-
           <div className="pt-6 border-t border-[var(--bg-panel)]">
             <h4 className="text-sm font-bold flex items-center gap-2 mb-4 text-[var(--text-primary)]">
               <BarChart3 size={16} className="text-[var(--accent-main)]" />
               System Analytics
             </h4>
-            {/* System Analytics - Enhanced with duration tracking */}
-            {(() => {
-              // Calculate front counts and estimated duration for each alter
-              const sortedSwitches = [...switches].sort((a, b) => 
-                new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              );
+            {/* Loading state */}
+            {loading && (
+              <div className="text-center py-4">
+                <p className="text-sm text-[var(--text-muted)]">Loading analytics...</p>
+              </div>
+            )}
+            {/* System Analytics - Using frontHistory directly */}
+            {!loading && (() => {
+              console.log('[Dashboard] Rendering analytics, frontHistory:', frontHistory.length, 'alters:', alters.length);
+              
+              const addedEntries = frontHistory.filter(entry => entry.action === 'added');
+              
+              // Calculate days tracked
+              let trackingDays = 0;
+              if (addedEntries.length > 0) {
+                const sortedByTime = [...addedEntries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                const firstEntry = sortedByTime[0];
+                const lastEntry = sortedByTime[sortedByTime.length - 1];
+                const daysMs = new Date(lastEntry.timestamp).getTime() - new Date(firstEntry.timestamp).getTime();
+                trackingDays = Math.max(1, Math.floor(daysMs / (1000 * 60 * 60 * 24)));
+              }
               
               const frontData: Record<string, { count: number; totalDuration: number }> = {};
               
-              sortedSwitches.forEach((log, index) => {
-                if (log.alterIds && Array.isArray(log.alterIds)) {
-                  // Calculate duration: time until next switch (or assume 1 hour if last)
-                  let duration = 60 * 60 * 1000; // Default 1 hour in ms
-                  if (index < sortedSwitches.length - 1) {
-                    const currentTime = new Date(log.timestamp).getTime();
-                    const nextTime = new Date(sortedSwitches[index + 1].timestamp).getTime();
-                    duration = Math.max(nextTime - currentTime, 60000); // At least 1 minute
-                  }
-                  
-                  log.alterIds.forEach(id => {
-                    if (!frontData[id]) {
-                      frontData[id] = { count: 0, totalDuration: 0 };
-                    }
-                    frontData[id].count += 1;
-                    frontData[id].totalDuration += duration;
-                  });
+              addedEntries.forEach((entry, index) => {
+                const alterId = entry.alterId;
+                
+                // Calculate duration: time until next 'added' entry (or assume 1 hour if last)
+                let duration = 60 * 60 * 1000; // Default 1 hour in ms
+                
+                // Find the next 'added' entry after this one in chronological order
+                const sortedEntries = [...addedEntries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                const currentIndex = sortedEntries.findIndex(e => e.id === entry.id);
+                const nextEntry = sortedEntries[currentIndex + 1];
+                
+                if (nextEntry) {
+                  const currentTime = new Date(entry.timestamp).getTime();
+                  const nextTime = new Date(nextEntry.timestamp).getTime();
+                  duration = Math.max(nextTime - currentTime, 60000); // At least 1 minute
                 }
+                
+                if (!frontData[alterId]) {
+                  frontData[alterId] = { count: 0, totalDuration: 0 };
+                }
+                frontData[alterId].count += 1;
+                frontData[alterId].totalDuration += duration;
               });
               
               const sortedFronters = Object.entries(frontData)
@@ -279,8 +401,8 @@ const Dashboard: React.FC = () => {
               if (sortedFronters.length === 0) {
                 return (
                   <div className="text-center py-4">
-                    <p className="text-sm text-[var(--text-muted)] italic">No switch data yet</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">Start tracking switches to see analytics</p>
+                    <p className="text-sm text-[var(--text-muted)] italic">No fronting data yet</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">Start tracking fronting in the Front History tab to see analytics</p>
                   </div>
                 );
               }
@@ -360,6 +482,83 @@ const Dashboard: React.FC = () => {
             <p className="text-[var(--text-muted)] italic text-center py-4">No friends yet. Add some from the community!</p>
           )}
         </motion.div>
+
+        {/* Community Posts */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-[var(--bg-surface)] rounded-3xl p-8 border border-[var(--bg-panel)] shadow-sm"
+        >
+          <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] mb-6">
+            <Users className="text-blue-500" />
+            Community Posts
+          </h3>
+          
+          {communityPosts.length > 0 ? (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {communityPosts.map((post) => {
+                const authorProfile = communityProfiles[post.systemId];
+                const systemAlters = communityAlters[post.systemId] || [];
+                const authorAlter = post.authorAlterId ? systemAlters.find(a => a.id === post.authorAlterId) : null;
+                
+                console.log('[Dashboard] Rendering post:', post.id, 'systemId:', post.systemId, 'authorAlterId:', post.authorAlterId);
+                console.log('[Dashboard] Profile:', authorProfile);
+                console.log('[Dashboard] Alters:', systemAlters);
+                
+                // Determine display name and avatar
+                const displayName = authorAlter 
+                  ? authorAlter.name 
+                  : (authorProfile?.displayName || authorProfile?.systemName || authorProfile?.username || 'User');
+                const displayAvatar = authorAlter?.avatarUrl || authorProfile?.avatarUrl || `https://ui-avatars.com/api/?name=${displayName}`;
+                
+                return (
+                  <div 
+                    key={post.id} 
+                    className="p-4 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)] hover:border-[var(--accent-main)] transition-all cursor-pointer"
+                    onClick={() => window.dispatchEvent(new CustomEvent('setViewProfile', { detail: post.systemId }))}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <img
+                        src={displayAvatar}
+                        alt={displayName}
+                        className="w-8 h-8 rounded-full object-cover border border-[var(--bg-panel)]"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[var(--text-primary)] truncate text-sm">
+                          {displayName}
+                          {authorAlter && <span className="text-xs text-[var(--text-muted)] ml-1">@{authorProfile?.systemName || authorProfile?.username || 'system'}</span>}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">{formatDate(post.timestamp)}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-[var(--text-secondary)] line-clamp-2">{post.content}</p>
+                    {post.imageUrls && post.imageUrls.length > 0 && (
+                      <div className="mt-2 flex gap-2">
+                        {post.imageUrls.slice(0, 2).map((url, i) => (
+                          <img 
+                            key={i} 
+                            src={url} 
+                            alt="Post image" 
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        ))}
+                        {post.imageUrls.length > 2 && (
+                          <div className="w-12 h-12 rounded-lg bg-[var(--bg-panel)] flex items-center justify-center text-xs text-[var(--text-muted)]">
+                            +{post.imageUrls.length - 2}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[var(--text-muted)] italic text-center py-4">No community posts yet.</p>
+          )}
+        </motion.div>
       </div>
 
       {/* Recent Switches */}
@@ -381,7 +580,7 @@ const Dashboard: React.FC = () => {
             <div key={log.id} className="flex items-center justify-between p-4 bg-[var(--bg-main)] rounded-2xl border border-[var(--bg-panel)] hover:border-[var(--accent-main)] transition-all">
               <div className="flex items-center gap-4">
                 <div className="flex -space-x-2">
-                  {log.alterIds.map((id) => {
+                  {(log.alterIds || []).map((id) => {
                     const alter = alters.find(a => a.id === id);
                     return (
                       <img
@@ -396,7 +595,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-medium text-[var(--text-primary)]">
-                    {log.alterIds.map(id => alters.find(a => a.id === id)?.name).join(' & ')}
+                    {(log.alterIds || []).map(id => alters.find(a => a.id === id)?.name).join(' & ')}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">{formatDate(log.timestamp)}</p>
                 </div>
@@ -448,7 +647,10 @@ const Dashboard: React.FC = () => {
                   className="w-24 h-24 rounded-3xl object-cover mx-auto mb-4 border-4 border-[var(--accent-main)]"
                   referrerPolicy="no-referrer"
                 />
-                <h4 className="text-2xl font-bold mb-2" style={{ color: 'var(--alter-text-color)' }}>{selectedAlter.name}</h4>
+                <h4 className="text-2xl font-bold mb-1" style={{ color: 'var(--alter-text-color)' }}>{selectedAlter.name}</h4>
+                {selectedAlter.pronouns && (
+                  <p className="text-sm mb-3 text-[var(--accent-main)]">{selectedAlter.pronouns}</p>
+                )}
                 {selectedAlter.description && (
                   <p className="mb-4" style={{ color: 'var(--alter-text-color)', opacity: 0.7 }}>{selectedAlter.description}</p>
                 )}
