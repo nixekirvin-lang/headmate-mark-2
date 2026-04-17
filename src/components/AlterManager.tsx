@@ -640,7 +640,7 @@ const AlterManager: React.FC = () => {
                   Save Changes
                 </button>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
         </AnimatePresence>
@@ -802,7 +802,7 @@ const AlterManager: React.FC = () => {
                   {isEditing ? 'Update Alter' : 'Create Alter'}
                 </button>
               </form>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
