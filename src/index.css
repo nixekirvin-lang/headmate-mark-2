@@ -1,14 +1,6 @@
 @import "tailwindcss";
 
-/* Import OpenDyslexic font from local file */
-@font-face {
-  font-family: 'OpenDyslexic';
-  src: url('./fonts/OpenDyslexic-Bold.otf') format('opentype');
-  font-weight: bold;
-  font-style: normal;
-  font-display: swap;
-}
-
+/* Import OpenDyslexic font - will be handled as static asset */
 :root {
   --alter-text-color: #000;
 }
