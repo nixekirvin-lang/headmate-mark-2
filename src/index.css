@@ -3,7 +3,8 @@
 /* Import OpenDyslexic font */
 @font-face {
   font-family: 'OpenDyslexic';
-  src: url('/OpenDyslexic-Bold.otf') format('opentype');
+  src: url('/OpenDyslexic-Bold.woff2') format('woff2'),
+       url('/OpenDyslexic-Bold.otf') format('opentype');
   font-weight: bold;
   font-style: normal;
   font-display: swap;
@@ -18,7 +19,7 @@
 .dyslexia-font *,
 .dyslexia-font *::before,
 .dyslexia-font *::after {
-  font-family: 'OpenDyslexic', sans-serif !important;
+  font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
   letter-spacing: 0.05em !important;
   line-height: 1.6 !important;
   word-spacing: 0.1em !important;
