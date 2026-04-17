@@ -1,17 +1,22 @@
 // Load OpenDyslexic font
+import openDyslexicFont from './fonts/OpenDyslexic-Bold.otf?url';
+
 const loadOpenDyslexicFont = () => {
   if (typeof document === 'undefined') return;
   
-  const fontUrl = '/fonts/OpenDyslexic-Bold.otf';
-  const fontFace = new FontFace('OpenDyslexic', `url(${fontUrl})`);
+  const loadFont = async () => {
+    try {
+      const fontFace = new FontFace('OpenDyslexic', `url(${openDyslexicFont})`);
+      
+      const loadedFont = await fontFace.load();
+      document.fonts.add(loadedFont);
+      console.log('OpenDyslexic font loaded successfully');
+    } catch (error) {
+      console.error('Failed to load OpenDyslexic font:', error);
+    }
+  };
   
-  fontFace.load().then((loadedFont) => {
-    document.fonts.add(loadedFont);
-    console.log('OpenDyslexic font loaded successfully');
-  }).catch((error) => {
-    console.error('Failed to load OpenDyslexic font:', error);
-  });
+  loadFont();
 };
 
-// Run on module load
 loadOpenDyslexicFont();
