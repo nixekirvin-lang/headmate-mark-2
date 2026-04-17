@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/* Import OpenDyslexic font */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/OpenDyslexic-Bold.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --alter-text-color: #000;
+}
+
+/* Dyslexia-friendly font */
+.dyslexia-font,
+.dyslexia-font *,
+.dyslexia-font *::before,
+.dyslexia-font *::after {
+  font-family: 'OpenDyslexic', sans-serif !important;
+  letter-spacing: 0.05em !important;
+  line-height: 1.6 !important;
+  word-spacing: 0.1em !important;
 }
