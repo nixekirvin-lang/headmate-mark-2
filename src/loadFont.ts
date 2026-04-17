@@ -1,12 +1,11 @@
 // Load OpenDyslexic font
-import openDyslexicFont from './fonts/OpenDyslexic-Bold.otf?url';
-
 const loadOpenDyslexicFont = () => {
   if (typeof document === 'undefined') return;
   
   const loadFont = async () => {
     try {
-      const fontFace = new FontFace('OpenDyslexic', `url(${openDyslexicFont})`);
+      const fontUrl = '/fonts/OpenDyslexic-Bold.otf';
+      const fontFace = new FontFace('OpenDyslexic', `url(${fontUrl})`);
       
       const loadedFont = await fontFace.load();
       document.fonts.add(loadedFont);
