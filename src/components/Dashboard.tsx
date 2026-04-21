@@ -402,7 +402,7 @@ const Dashboard: React.FC = () => {
                 return (
                   <div className="text-center py-4">
                     <p className="text-sm text-[var(--text-muted)] italic">No fronting data yet</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">Start tracking fronting in the Front History tab to see analytics</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">Start tracking fronting in the Front Tracker tab to see analytics</p>
                   </div>
                 );
               }

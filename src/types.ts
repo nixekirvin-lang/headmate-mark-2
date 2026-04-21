@@ -105,9 +105,10 @@ export interface FrontHistoryEntry {
   id: string;
   userId: string;
   alterId: string;
-  action: 'added' | 'removed';
+  action: 'added' | 'removed' | 'status_changed';
   timestamp: string;
   previousTimestamp?: string; // For removals, when they were added
+  frontStatus?: string; // Custom status at time of fronting
 }
 
 export interface InternalMessage {

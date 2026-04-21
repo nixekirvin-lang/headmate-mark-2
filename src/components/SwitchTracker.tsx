@@ -4,7 +4,7 @@ import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import { Activity, Plus, Check, Clock, BarChart3, Trash2, UserMinus, Timer, Edit2, Save, X, Trash, AlertTriangle } from 'lucide-react';
+import { Activity, Plus, Check, Clock, BarChart3, Trash2, UserMinus, Timer, Edit2, Save, X, Trash, AlertTriangle, MessageSquare } from 'lucide-react';
 import { cn, formatDate, formatDetailedDuration } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
@@ -54,11 +54,13 @@ const SwitchTracker: React.FC = () => {
       console.log('Profile updated, creating history entry');
       
       // Create history entry (append-only, never modify)
+      // Include the current front status for this alter
       await addDoc(collection(db, 'users', user.uid, 'frontHistory'), {
         userId: user.uid,
         alterId,
         action: 'added',
         timestamp,
+        frontStatus: profile.frontStatuses?.[alterId] || undefined,
       });
       console.log('History entry created successfully');
     } catch (error) {
@@ -162,6 +164,17 @@ const SwitchTracker: React.FC = () => {
       await updateDoc(doc(db, 'users', user.uid), {
         frontStatuses: newStatuses,
       });
+      
+      // Create a status_changed history entry to track status updates
+      if (profile.currentFrontIds?.includes(alterId)) {
+        await addDoc(collection(db, 'users', user.uid, 'frontHistory'), {
+          userId: user.uid,
+          alterId,
+          action: 'status_changed',
+          timestamp: new Date().toISOString(),
+          frontStatus: statusInput.trim() || null,
+        });
+      }
       
       setEditingStatusFor(null);
       setStatusInput('');
@@ -706,19 +719,21 @@ const SwitchTracker: React.FC = () => {
         <div className="p-6 border-b border-[var(--bg-panel)]">
           <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
             <Clock className="text-[var(--accent-main)]" />
-            Front History Log
+            Front Tracker Log
           </h3>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Each add/remove action is logged as a separate entry (append-only)
+            Each add/remove/status action is logged as a separate entry (append-only)
           </p>
         </div>
         <div className="divide-y divide-[var(--bg-panel)]">
           {frontHistory.length > 0 ? frontHistory.map((entry) => {
             const alter = alters.find(a => a.id === entry.alterId);
             const isAdded = entry.action === 'added';
+            const isRemoved = entry.action === 'removed';
+            const isStatusChanged = entry.action === 'status_changed';
             
             let duration = null;
-            if (!isAdded && entry.previousTimestamp) {
+            if (isRemoved && entry.previousTimestamp) {
               duration = formatDetailedDuration(entry.previousTimestamp, entry.timestamp);
             }
             
@@ -727,9 +742,9 @@ const SwitchTracker: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center",
-                    isAdded ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600"
+                    isAdded ? "bg-green-100 dark:bg-green-900/30 text-green-600" : isRemoved ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-blue-100 dark:bg-blue-900/30 text-blue-600"
                   )}>
-                    {isAdded ? <Plus size={20} /> : <UserMinus size={20} />}
+                    {isAdded ? <Plus size={20} /> : isRemoved ? <UserMinus size={20} /> : <MessageSquare size={20} />}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -738,17 +753,22 @@ const SwitchTracker: React.FC = () => {
                       </p>
                       <span className={cn(
                         "px-2 py-0.5 text-xs font-bold rounded-full",
-                        isAdded ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600"
+                        isAdded ? "bg-green-100 dark:bg-green-900/30 text-green-600" : isRemoved ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-blue-100 dark:bg-blue-900/30 text-blue-600"
                       )}>
-                        {isAdded ? 'Added to Front' : 'Removed from Front'}
+                        {isAdded ? 'Added to Front' : isRemoved ? 'Removed from Front' : 'Status Changed'}
                       </span>
                     </div>
                     <p className="text-sm text-[var(--text-muted)]">
                       {formatDate(entry.timestamp)}
                     </p>
-                    {!isAdded && duration && (
+                    {isRemoved && duration && (
                       <p className="text-sm text-[var(--accent-main)] mt-1">
                         Fronted for: {duration.days > 0 ? `${duration.days}d ` : ''}{duration.hours > 0 ? `${duration.hours}h ` : ''}{duration.minutes > 0 ? `${duration.minutes}m ` : ''}{duration.seconds}s
+                      </p>
+                    )}
+                    {entry.frontStatus && (
+                      <p className="text-sm mt-1 px-3 py-1 bg-[var(--accent-main)]/10 text-[var(--accent-main)] rounded-full inline-flex">
+                        "{entry.frontStatus}"
                       </p>
                     )}
                   </div>

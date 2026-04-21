@@ -116,14 +116,17 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       const isMainFront = profile.mainFrontId === alterId;
       
+      // Get status from history entry or fallback to profile's frontStatuses
+      const status = addEntry?.frontStatus || profile.frontStatuses?.[alterId];
+      
       return {
         alter,
         addedAt,
-        status: undefined,
+        status,
         isMainFront,
       };
     }).filter(Boolean) as CurrentFrontInfo[];
-  }, [profile?.currentFrontIds, profile?.mainFrontId, alters, frontHistory]);
+  }, [profile?.currentFrontIds, profile?.mainFrontId, alters, frontHistory, profile?.frontStatuses]);
 
   return (
     <SystemContext.Provider value={{ alters, switches, frontHistory, currentFronters, mainFront, currentFrontersWithInfo, loading }}>

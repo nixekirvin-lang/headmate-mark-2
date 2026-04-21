@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Import OpenDyslexic from CDN */
-@import url('https://fonts.cdnfonts.com/css/open-dyslexic');
+/* Import OpenDyslexic from jsDelivr CDN */
+@import url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.css');
 
 :root {
   --alter-text-color: #000;
@@ -12,7 +12,7 @@
 .dyslexia-font *,
 .dyslexia-font *::before,
 .dyslexia-font *::after {
-  font-family: 'Open-Dyslexic', 'Comic Sans MS', sans-serif !important;
+  font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
   letter-spacing: 0.05em !important;
   line-height: 1.6 !important;
   word-spacing: 0.1em !important;
